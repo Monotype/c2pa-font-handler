@@ -1,0 +1,23 @@
+# @copyright 2024 Monotype Imaging Inc.
+#
+# @file .rustfmt.toml
+#
+# @brief Configuration file for rustfmt.
+#
+# @remarks IMPORTANT: Should always use the nightly toolchain for formatting
+#
+
+blank_lines_upper_bound = 1
+comment_width = 80
+edition = "2021"
+format_code_in_doc_comments = true
+group_imports = "StdExternalCrate"
+hex_literal_case = "Lower"
+imports_granularity = "Crate"
+max_width = 80
+reorder_impl_items = true
+reorder_imports = true
+reorder_modules = true
+type_punctuation_density = "Wide"
+unstable_features = true
+wrap_comments = true

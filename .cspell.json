@@ -1,0 +1,23 @@
+{
+  "language": "en",
+  "dictionaries": [
+    "rust",
+    "powershell",
+    "fonts"
+  ],
+  "files": [
+    "**/*.{md,rs,ps1,yml}",
+    ".*/**/*.{md,rs,ps1,yml}"
+  ],
+  "ignorePaths": [
+    "**/target/**",
+    "**/node_modules/**",
+    "**/vendor/**",
+    "**/dist/**",
+    ".github/workflows/**",
+    "CHANGELOG.md"
+  ],
+  "words": [
+
+  ]
+}
