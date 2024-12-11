@@ -28,6 +28,33 @@ fn test_load_of_font() {
 }
 
 #[test]
+fn test_load_of_font_exact() {
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut reader = std::io::Cursor::new(font_data);
+    let font =
+        SfntFont::from_reader_exact(&mut reader, 0, font_data.len()).unwrap();
+    assert_eq!(font.header.num_tables(), 11);
+    assert_eq!(font.tables.len(), 11);
+}
+
+#[test]
+fn test_write_font_data_with_zero_tables() {
+    let mut font = SfntFont {
+        header: SfntHeader::default(),
+        directory: SfntDirectory::new(),
+        tables: std::collections::BTreeMap::new(),
+    };
+    let mut writer = std::io::Cursor::new(Vec::new());
+    let result = font.write(&mut writer);
+    assert!(result.is_err());
+    let err = result.err().unwrap();
+    assert!(matches!(
+        err,
+        FontIoError::SaveError(FontSaveError::NoTablesFound)
+    ));
+}
+
+#[test]
 fn test_load_font_with_bad_magic() {
     // mimic a bad font in memory
     let mut bad_font_data = [0u8; 100];
@@ -149,5 +176,5 @@ fn test_font_as_font_trait() {
     let font = SfntFont::from_reader(&mut reader).unwrap();
     assert_eq!(font.header().sfntVersion as u32, 0x4f54544f);
     assert_eq!(11, font.header().num_tables());
-    assert_eq!(11, font.directory.entries().len());
+    assert_eq!(11, font.directory().entries().len());
 }

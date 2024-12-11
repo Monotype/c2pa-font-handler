@@ -95,7 +95,7 @@ impl MutFontDataWrite for SfntFont {
         neo_header.entrySelector = if neo_header.numTables > 0 {
             neo_header.numTables.ilog2() as u16
         } else {
-            0_u16
+            return Err(FontSaveError::NoTablesFound.into());
         };
         neo_header.searchRange =
             2_u16.pow(neo_header.entrySelector as u32) * 16;

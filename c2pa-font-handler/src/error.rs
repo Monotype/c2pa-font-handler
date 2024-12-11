@@ -60,6 +60,9 @@ pub enum FontIoError {
 /// Errors related to saving a font
 #[derive(Debug, thiserror::Error)]
 pub enum FontSaveError {
+    /// The font has no tables.
+    #[error("No tables were found in the font.")]
+    NoTablesFound,
     /// The font has too many tables that were added.
     #[error("Too many tables were added to the font, which is currently not supported.")]
     TooManyTablesAdded,
