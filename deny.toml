@@ -29,15 +29,8 @@ wildcards = "deny"
 [licenses]
 allow = [
   "Apache-2.0",
-  "BSD-2-Clause",
-  "BSD-3-Clause",
-  "CC0-1.0",
-  "ISC",
-  "LicenseRef-ring",
   "MIT",
-  "MPL-2.0",
-  "Unicode-DFS-2016",
-  "Zlib",
+  "Unicode-3.0",
 ]
 version = 2
 confidence-threshold = 0.8
@@ -49,4 +42,4 @@ allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = [] 
 
 [sources.allow-org]
-github = ["Monotype"]
+#github = ["Monotype"]

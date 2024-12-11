@@ -89,28 +89,6 @@ jobs:
     secrets: 
       USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
 
-  docker-build:
-    needs:
-      copyright-update
-    if: needs.copyright-update.outputs.copyright_commit_added == 'false'
-    name: Build Docker image
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-    - run: git config --global url."https://${{ secrets.PITEST_TOKEN }}@github.com".insteadOf https://github.com
-    - uses: nelonoel/branch-name@v1.0.1
-    - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: 1.75.0
-        components: llvm-tools-preview
-    - name: Vendor dependencies
-      run: mkdir -p .cargo && cargo vendor --no-delete > .cargo/config.toml
-    - name: Build the Docker image
-      # Switched to `docker compose` as noted in https://github.com/actions/runner-images/issues/9692
-      run: docker compose -f ./docker-compose.yml -f ./docker-compose.development.yml build
-
   docs:
     needs:
       copyright-update
