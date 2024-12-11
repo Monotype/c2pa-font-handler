@@ -1,0 +1,48 @@
+# @copyright 2024 Monotype Imaging Inc.
+#  
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#  
+#     http://www.apache.org/licenses/LICENSE-2.0
+#  
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+# @file Cargo.toml
+#
+# @brief Cargo.toml for C2PA font handler workspace.
+#
+[workspace]
+resolver = "2"
+members = ["c2pa-font-handler"]
+exclude = []
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Michael Brogdon <Michael.Brogdon@monotype.com>"]
+description = "C2PA Font Handler (or codec) to be used with the c2pa-rs SDK."
+
+[workspace.dependencies]
+anyhow = { version = "1.0.94" }
+byteorder = { version = "1.5.0" }
+bytes = { version = "1.9.0" }
+clap = { version = "4.5.23", features = ["derive"] }
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = { version = "1.0.133" }
+thiserror = { version = "2.0.6" }
+tokio = { version = "1.42.0", features = ["full"] }
+tracing = { version = "0.1.41" }
+tracing-subscriber = { version = "0.3.19", features = ["json", "env-filter"] }
+
+[workspace.lints.rust]
+missing_docs = "deny"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "deny"
+private_intra_doc_links = "deny"
+bare_urls = "deny"
+unescaped_backticks = "deny"

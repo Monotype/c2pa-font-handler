@@ -12,11 +12,21 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# Default
-* text=auto
+name: "Generate release tag and PR for version update"
 
-# Ignore development files when doing git archive
-.github export-ignore
-.gitignore export-ignore
-.gitattributes export-ignore
-.vscode export-ignore
+on:
+  push:
+    branches:
+      - "main"
+
+jobs:
+
+  # Update the rust workspace version (if it hasn't yet been updated), or if it
+  # has been updated, created a tag to reflect the new workspace version.
+  version-update:
+    uses: Monotype/rust-actions/.github/workflows/.version-update.yml@main
+    secrets: 
+      # Use pitest user for creating PRs and tags.
+      GITHUB_USER_NAME: ${{ secrets.PITEST_USER }}
+      GITHUB_USER_EMAIL: ${{ secrets.PITEST_EMAIL}}
+      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}

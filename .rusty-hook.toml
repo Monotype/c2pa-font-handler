@@ -1,5 +1,5 @@
 #  Copyright 2024 Monotype Imaging Inc.
-#  
+#
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
 #  You may obtain a copy of the License at
@@ -12,11 +12,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# Default
-* text=auto
+# To use:
+# 1. cargo install rusty-hook
+# 2. rusty-hook init
 
-# Ignore development files when doing git archive
-.github export-ignore
-.gitignore export-ignore
-.gitattributes export-ignore
-.vscode export-ignore
+[hooks]
+pre-commit = "git diff --cached --name-only --diff-filter=d | cargo +nightly fmt -- && git diff --cached --name-only --diff-filter=d | git add --pathspec-from-file=-"
+pre-push = "cargo test --all --all-features && cargo +nightly clippy --all-features --all-targets --no-deps -- -D warnings && cspell --gitignore"
+
+[logging]
+verbose = true

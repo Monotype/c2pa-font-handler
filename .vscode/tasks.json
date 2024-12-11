@@ -1,4 +1,109 @@
 {
   "version": "2.0.0",
-  "tasks": []
+  "tasks": [
+    {
+      "type": "shell",
+      "command": "cargo",
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "args": [
+        "+nightly",
+        "udeps",
+        "--all-features",
+        "--all-targets"
+      ],
+      "group": "build",
+      "label": "rust: cargo udeps"
+    },
+    {
+      "type": "cargo",
+      "command": "build",
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "args": [],
+      "group": "build",
+      "label": "rust: cargo build"
+    },
+    {
+      "type": "cargo",
+      "command": "build",
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "args": [
+        "--example",
+        "stub_dsig"
+      ],
+      "group": "build",
+      "label": "rust: cargo build stub_dsig"
+    },
+    {
+      "type": "shell",
+      "command": "cargo",
+      "args": [
+        "+nightly",
+        "fmt"
+      ],
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "label": "rust: cargo fmt",
+    },
+    {
+      "type": "cargo",
+      "command": "test",
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "args": [
+        "--no-run",
+        "--all-features",
+      ],
+      "group": "build",
+      "label": "rust: cargo build tests",
+    },
+    // This requires the cargo-llvm-cov subcommand to be installed:
+    //
+    //   cargo install cargo-llvm-cov
+    //
+    // After running, the coverage report can be found in target/llvm-cov/html/index.html
+    {
+      "type": "cargo",
+      "command": "llvm-cov",
+      "args": [
+        "--all-features",
+        "--workspace",
+        "--html",
+        "--ignore-filename-regex",
+        "(build.rs|error.rs|mocks|tests|test-utils|test.rs|_test.rs)"
+      ],
+      "group": "test",
+      "label": "rust: cargo coverage",
+    },
+    // This requires the cargo-llvm-cov subcommand to be installed:
+    //
+    //   cargo install cargo-llvm-cov
+    //
+    // After running, the coverage file output can be found in the root
+    // directory as lcov.info.  This file automatically gets picked up by the
+    // Coverage Gutters extension to create a gutter which highlights covered
+    // lines.
+    {
+      "type": "cargo",
+      "command": "llvm-cov",
+      "args": [
+        "--all-features",
+        "--workspace",
+        "--lcov",
+        "--output-path",
+        "lcov.info",
+        "--ignore-filename-regex",
+        "(build.rs|error.rs|mocks|tests|test-utils|test.rs|_test.rs)"
+      ],
+      "group": "test",
+      "label": "rust: cargo coverage for Coverage Gutters extension",
+    }
+  ]
 }

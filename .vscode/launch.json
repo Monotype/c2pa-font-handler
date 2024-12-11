@@ -1,4 +1,37 @@
 {
   "version": "0.2.0",
-  "configurations": []
+  "configurations": [
+    {
+      "name": "(MacOs) Debug stub_dsig example",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceRoot}/target/debug/examples/stub_dsig",
+      "preLaunchTask": "rust: cargo build stub_dsig",
+      "args": [
+        "--input",
+        "${workspaceRoot}/.devtools/font.otf",
+        "--output",
+        "${workspaceRoot}/target/debug/font.otf"
+      ],
+      "cwd": "${workspaceRoot}",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+    },
+    {
+      "name": "(Windows) Debug stub_dsig example",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceRoot}/target/debug/examples/stub_dsig.exe",
+      "preLaunchTask": "rust: cargo build stub_dsig",
+      "args": [
+        "--input",
+        "${workspaceRoot}/.devtools/font.otf",
+        "--output",
+        "${workspaceRoot}/target/debug/font.otf"
+      ],
+      "cwd": "${workspaceRoot}",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+    },
+  ]
 }

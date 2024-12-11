@@ -1,0 +1,75 @@
+# @copyright 2024 Monotype Imaging Inc.
+#  
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#  
+#     http://www.apache.org/licenses/LICENSE-2.0
+#  
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+# @file nightly.yml
+#
+# @brief GitHub Actions workflow for nightly verifications.
+#
+on: 
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * *" # Run at 5am UTC every day
+
+jobs:
+
+  audits:
+    uses: Monotype/rust-actions/.github/workflows/.audits.yml@main
+    with:
+      check_unused_deps: false
+    secrets: 
+      GITHUB_USER: ${{ secrets.PITEST_USER }}
+      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
+
+  builds:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        # Nightly checks for the latest stable and nightly toolchains
+        rust_version: [stable, nightly]
+    uses: Monotype/rust-actions/.github/workflows/.builds.yml@main
+    with:
+      os: ${{ matrix.os }}
+      rust_version: ${{ matrix.rust_version }}
+    secrets: 
+      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
+
+  code-smells:
+    uses: Monotype/rust-actions/.github/workflows/.code-smells.yml@main
+    secrets:
+      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
+  
+  tests:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        rust_version: [stable, nightly]
+    uses: Monotype/rust-actions/.github/workflows/.tests.yml@main
+    with:
+      rust_version: ${{ matrix.rust_version }}
+      os: ${{ matrix.os }}
+      report_coverage: false
+    secrets: 
+      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
+  
+  attention:
+    uses: Monotype/rust-actions/.github/workflows/.create-failed-workflow-pr.yml@main
+    if: ${{ failure() }}
+    needs: [audits, builds, code-smells, tests]
+    with:
+      destination_branch: dev
+    secrets: 
+      # Use pitest user for creating PRs and tags.
+      GITHUB_USER_NAME: ${{ secrets.PITEST_USER }}
+      GITHUB_USER_EMAIL: ${{ secrets.PITEST_EMAIL}}
+      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
