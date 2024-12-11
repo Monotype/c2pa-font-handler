@@ -18,6 +18,21 @@
     "CHANGELOG.md"
   ],
   "words": [
-
+    "byteorder",
+    "cksum",
+    "DSIG",
+    "fullword",
+    "FWORD",
+    "gitflow",
+    "halfword",
+    "halfwords",
+    "ilog",
+    "ppem",
+    "repr",
+    "reqs",
+    "sfnt",
+    "Stubber",
+    "thiserror",
+    "xdadau"
   ]
 }

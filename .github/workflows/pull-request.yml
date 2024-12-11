@@ -1,0 +1,154 @@
+# @copyright 2024 Monotype Imaging Inc.
+#  
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#  
+#     http://www.apache.org/licenses/LICENSE-2.0
+#  
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+# @file pull-request.yml
+#
+# @brief GitHub Actions workflow for Pull Requests
+#
+on: 
+  pull_request:
+    branches:
+      - "dev"
+      - "main"
+    paths-ignore:
+      - "./.devtools"
+      - "**/*.md"
+      - "./.vscode"
+      - "./Docs/"
+      - ".gitignore"
+      - ".rusty-hook.toml"
+
+jobs:
+  # Check all modifies files to see if any need updates to their copyright
+  # comments (or, in the case of .rs files, are missing a copyright comment).
+  # This outputs a "copyright_commit_added" boolean which signals that a new
+  # copyright commit has been made - if this is true, we should avoid running
+  # any other jobs; as they will be run again with the new copyright commit.
+  copyright-update:
+    uses: Monotype/rust-actions/.github/workflows/.copyright-update.yml@main
+    secrets: 
+      GITHUB_USER_NAME: ${{ secrets.PITEST_USER }}
+      GITHUB_USER_EMAIL: ${{ secrets.PITEST_EMAIL }}
+      GITHUB_USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
+
+  audits:
+    needs:
+      copyright-update
+    if: needs.copyright-update.outputs.copyright_commit_added == 'false'
+    uses: Monotype/rust-actions/.github/workflows/.audits.yml@main
+    with:
+      check_unused_deps: true
+    secrets: 
+      GITHUB_USER: ${{ secrets.PITEST_USER }}
+      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
+
+  builds:
+    needs:
+      copyright-update
+    if: needs.copyright-update.outputs.copyright_commit_added == 'false'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        # PRs should check the default toolchain, stable, and nightly
+        rust_version: [1.75.0, stable, nightly]
+    uses: Monotype/rust-actions/.github/workflows/.builds.yml@main
+    with:
+      os: ${{ matrix.os }}
+      rust_version: ${{ matrix.rust_version }}
+    secrets: 
+      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
+
+  code-smells:
+    needs:
+      copyright-update
+    if: needs.copyright-update.outputs.copyright_commit_added == 'false'
+    uses: Monotype/rust-actions/.github/workflows/.code-smells.yml@main
+    secrets:
+      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
+
+  coverage:
+    needs:
+      copyright-update
+    if: needs.copyright-update.outputs.copyright_commit_added == 'false'
+    uses: Monotype/rust-actions/.github/workflows/.tests.yml@main
+    with:
+      rust_version: stable 
+      os: ubuntu-latest 
+      report_coverage: true
+    secrets: 
+      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
+
+  docker-build:
+    needs:
+      copyright-update
+    if: needs.copyright-update.outputs.copyright_commit_added == 'false'
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - run: git config --global url."https://${{ secrets.PITEST_TOKEN }}@github.com".insteadOf https://github.com
+    - uses: nelonoel/branch-name@v1.0.1
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: 1.75.0
+        components: llvm-tools-preview
+    - name: Vendor dependencies
+      run: mkdir -p .cargo && cargo vendor --no-delete > .cargo/config.toml
+    - name: Build the Docker image
+      # Switched to `docker compose` as noted in https://github.com/actions/runner-images/issues/9692
+      run: docker compose -f ./docker-compose.yml -f ./docker-compose.development.yml build
+
+  docs:
+    needs:
+      copyright-update
+    if: needs.copyright-update.outputs.copyright_commit_added == 'false'
+    uses: Monotype/rust-actions/.github/workflows/.docs.yml@main
+    secrets:
+      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
+
+  # We only check spelling on Pull Requests, as once it is merged in the
+  # spellings shouldn't change, right??
+  spellcheck:
+    needs:
+      copyright-update
+    if: needs.copyright-update.outputs.copyright_commit_added == 'false'
+    name: Spellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install Cspell
+        uses: streetsidesoftware/cspell-action@v5
+        with:
+          files: '**/*.{md,rs,ps1,yml}'
+          incremental_files_only: true
+          config: './.cspell.json'
+          verbose: true
+          check_dot_files: true
+
+  # Don't run coverage for nightly, as it is not stable and we use it only
+  # to get ahead of any breaking changes.
+  tests:
+    needs:
+      copyright-update
+    if: needs.copyright-update.outputs.copyright_commit_added == 'false'
+    uses: Monotype/rust-actions/.github/workflows/.tests.yml@main
+    with:
+      rust_version: nightly
+      os: ubuntu-latest
+      report_coverage: false 
+    secrets: 
+      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
