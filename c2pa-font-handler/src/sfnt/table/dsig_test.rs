@@ -27,6 +27,21 @@ fn test_stub_dsig() {
 }
 
 #[test]
+fn test_table_dsig_read() {
+    let mut reader = Cursor::new(vec![
+        0x00, 0x00, 0x00, 0x01, // version
+        0x00, 0x00, // numSignatures
+        0x00, 0x00, // flags
+    ]);
+    let result = TableDSIG::from_reader(&mut reader);
+    assert!(result.is_ok());
+    let dsig = result.unwrap();
+    assert_eq!(dsig.version, 1);
+    assert_eq!(dsig.numSignatures, 0);
+    assert_eq!(dsig.flags, 0);
+}
+
+#[test]
 fn test_table_dsig_read_exact() {
     let mut reader = Cursor::new(vec![
         0x00, 0x00, 0x00, 0x01, // version
