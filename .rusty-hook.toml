@@ -12,6 +12,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+# To use:
+# 1. cargo install rusty-hook
+# 2. rusty-hook init
+
 [hooks]
 pre-commit = "git diff --cached --name-only --diff-filter=d | cargo +nightly fmt -- && git diff --cached --name-only --diff-filter=d | git add --pathspec-from-file=-"
 pre-push = "cargo test --all --all-features && cargo +nightly clippy --all-features --all-targets --no-deps -- -D warnings && cspell --gitignore"

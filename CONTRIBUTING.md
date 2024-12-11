@@ -12,6 +12,7 @@
 - [Documentation](#documentation)
 - [Unit Test Coverage](#unit-test-coverage)
 - [Merging](#merging)
+- [Git Hooks](#git-hooks)
 
 We welcome contributions to this project.
 
@@ -127,3 +128,13 @@ Source Branch|Target Branch|Merge Operation|Notes
 *any*|`main`|Merge|Preserves development history of release in the `main` branch
 hotfix branches: `hotfix/*` |*any*|Merge|Permits the same Hotfix to merge to multiple target branches
 development branches: `fix/*`, `feature/*`, `td/*`, `spike/*`|`dev`|Squash and merge|Before confirming, verify that the commit title is the same as the PR title, and the commit description is useful.
+
+## Git Hooks
+
+The [.rusty-hook.toml](./.rusty-hook.toml) file is intended to be used with the [rusty-hook](https://crates.io/crates/rusty-hook) tool.
+To setup the hooks run:
+
+```shell
+cargo install rusty-hook
+rusty-hook init
+```
