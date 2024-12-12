@@ -12,6 +12,7 @@
 - [Documentation](#documentation)
 - [Unit Test Coverage](#unit-test-coverage)
 - [Merging](#merging)
+  - [Auto Versioning](#auto-versioning)
 - [Git Hooks](#git-hooks)
 
 We welcome contributions to this project.
@@ -128,6 +129,34 @@ Source Branch|Target Branch|Merge Operation|Notes
 *any*|`main`|Merge|Preserves development history of release in the `main` branch
 hotfix branches: `hotfix/*` |*any*|Merge|Permits the same Hotfix to merge to multiple target branches
 development branches: `fix/*`, `feature/*`, `td/*`, `spike/*`|`dev`|Squash and merge|Before confirming, verify that the commit title is the same as the PR title, and the commit description is useful.
+
+### Auto Versioning
+
+Auto-tagging of the latest version is done automatically by an internal shared action. This workflow triggers on merging to main.
+
+When a merge to main is done, the workflow will determine the:
+
+- Current version of the workspace
+- Latest version from release tags
+- Next version tag
+
+The next version is determined by reviewing all of the commits since the last release tag looking for the following patterns:
+
+- `(MAJOR)` to indicate the major number should be updated. For example:
+  
+  ```text
+  (MAJOR) Major re-architecture of client operations
+  ```
+
+- `(MINOR)` to indicate the minor number should be updated
+
+  ```text
+  (MINOR) Added extra domain error levels 
+  ```
+
+If neither one of these are encountered, the patch number will be incremented. Two new Pull Requests will automatically be generated for updating the version with this determined version; one targeting `main` and the other targeting `dev`.
+
+When a version update Pull Request has merged to `main`, then the workflow will create a tag with this version and push the tag.
 
 ## Git Hooks
 
