@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -19,12 +19,24 @@ use super::tag::FontTag;
 /// Errors related to font I/O.
 #[derive(Debug, thiserror::Error)]
 pub enum FontIoError {
+    /// A content credential already exists
+    #[error("A content credential already exists")]
+    ContentCredentialAlreadyExists,
+    /// Content credential record not found
+    #[error("A content credential was not found")]
+    ContentCredentialNotFound,
     /// Failed to write the font table data.
     #[error("Failed to write font table data")]
     FailedToWriteTableData(std::io::Error),
     /// An error occurred while reading or writing the font data.
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+    /// An invalid (or unsupported) major C2PA version
+    #[error("Invalid major version specified for a valid C2PA record")]
+    InvalidC2paMajorVersion(u16),
+    /// An invalid (or unsupported) minor C2PA version
+    #[error("Invalid minor version specified for a valid C2PA record")]
+    InvalidC2paMinorVersion(u16),
     /// The magic number in the 'head' table is invalid.
     #[error("Invalid magic number in the 'head' table; expected 0x5f0f3cf5, got {0}")]
     InvalidHeadMagicNumber(u32),
@@ -49,6 +61,13 @@ pub enum FontIoError {
     /// The font table is truncated.
     #[error("The font table is truncated: {0}")]
     LoadTableTruncated(FontTag),
+    /// An error occurred while generating a string from UTF-8 bytes.
+    #[error("Error occurred while generating a string from UTF-8 bytes: {0}")]
+    StringFromUtf8(#[from] std::string::FromUtf8Error),
+    /// When attempting to read a certain number of bytes, not enough bytes
+    /// were read.
+    #[error("Failed to read enough bytes")]
+    NotEnoughBytes(std::io::Error),
     /// Save errors.
     #[error("Error saving the font: {0}")]
     SaveError(#[from] FontSaveError),

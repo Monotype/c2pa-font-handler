@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -23,7 +23,8 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::{
     error::FontIoError, tag::FontTag, utils::u32_from_u16_pair,
-    FontDataChecksum, FontDataRead, FontDataWrite, FontTable,
+    FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
+    FontTable,
 };
 
 /// Spec-mandated magic number for the 'head' table.
@@ -36,24 +37,42 @@ pub(crate) const SFNT_EXPECTED_CHECKSUM: u32 = 0xb1b0afba;
 #[derive(Debug)]
 #[repr(C, packed(1))]
 #[allow(non_snake_case)] // As named by Open Font Format / OpenType.
-pub(crate) struct TableHead {
+pub struct TableHead {
+    /// Major version number of the font.
     pub majorVersion: u16, // Note - Since we only modify checksumAdjustment,
+    /// Minor version number of the font.
     pub minorVersion: u16, // we might just as well define this struct as
+    /// Revision number of the font.
     pub fontRevision: u32, //    version_stuff: u8[8],
+    /// Checksum adjustment.
     pub checksumAdjustment: u32, //    checksumAdjustment: u32,
-    pub magicNumber: u32,  //    rest_of_stuff: u8[42],
+    /// Magic number for the font.
+    pub magicNumber: u32, //    rest_of_stuff: u8[42],
+    /// Flags for the font.
     pub flags: u16,
+    /// Units per em.
     pub unitsPerEm: u16,
+    /// Date created.
     pub created: i64,
+    /// Date modified.
     pub modified: i64,
+    /// Minimum x.
     pub xMin: i16,
+    /// Minimum y.
     pub yMin: i16,
+    /// Maximum x.
     pub xMax: i16,
+    /// Maximum y.
     pub yMax: i16,
+    /// Mac style.
     pub macStyle: u16,
+    /// Lowest PPEM.
     pub lowestRecPPEM: u16,
+    /// Font direction hint.
     pub fontDirectionHint: i16,
+    /// Index to loc format.
     pub indexToLocFormat: i16,
+    /// Glyph data format.
     pub glyphDataFormat: i16,
 }
 
@@ -121,6 +140,10 @@ impl FontDataRead for TableHead {
         }
         Ok(head)
     }
+}
+
+impl FontDataExactRead for TableHead {
+    type Error = FontIoError;
 
     fn from_reader_exact<T: Read + Seek + ?Sized>(
         reader: &mut T,

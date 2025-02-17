@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 use std::{
     collections::{btree_map::Entry, BTreeMap},
     io::{Read, Seek},
+    mem::size_of,
     num::Wrapping,
 };
 
@@ -28,14 +29,23 @@ use super::{
     },
 };
 use crate::{
+    c2pa::{C2PASupport, UpdatableC2PA},
     error::{FontIoError, FontSaveError},
+    sfnt::table::TableC2PA,
     tag::FontTag,
     utils::align_to_four,
-    Font, FontDSIGStubber, FontDataChecksum, FontDataRead, FontDataWrite,
-    FontDirectory, FontHeader, MutFontDataWrite,
+    ChunkPosition, ChunkReader, ChunkType, Font, FontDSIGStubber,
+    FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
+    FontDirectory, FontHeader, FontTable, MutFontDataWrite,
 };
 
+/// Pseudo-tag for the header
+const SFNT_HEADER_CHUNK_NAME: FontTag = FontTag { data: *b" HDR" };
+/// Pseudo-tag for the table directory
+const _SFNT_DIRECTORY_CHUNK_NAME: FontTag = FontTag { data: *b" DIR" };
+
 /// Implementation of an SFNT font.
+#[derive(Default)]
 pub struct SfntFont {
     header: SfntHeader,
     directory: SfntDirectory,
@@ -69,6 +79,10 @@ impl FontDataRead for SfntFont {
             tables,
         })
     }
+}
+
+impl FontDataExactRead for SfntFont {
+    type Error = FontIoError;
 
     fn from_reader_exact<T: Read + Seek + ?Sized>(
         reader: &mut T,
@@ -108,11 +122,11 @@ impl MutFontDataWrite for SfntFont {
         let new_table_count = self.tables.len() as u16;
         let table_diff = new_table_count as i32 - orig_table_count as i32;
         // Make sure we only removed at most one table.
-        if table_diff <= -1 {
+        if table_diff < -1 {
             return Err(FontSaveError::TooManyTablesRemoved.into());
         }
         // Make sure we only added at most one table.
-        else if table_diff >= 1 {
+        else if table_diff > 1 {
             return Err(FontSaveError::TooManyTablesAdded.into());
         }
 
@@ -189,9 +203,99 @@ impl FontDSIGStubber for SfntFont {
     }
 }
 
+impl C2PASupport for SfntFont {
+    type Error = FontIoError;
+
+    fn add_c2pa_record(
+        &mut self,
+        record: crate::c2pa::ContentCredentialRecord,
+    ) -> Result<(), Self::Error> {
+        // Look for an entry int he table
+        match self.tables.entry(FontTag::C2PA) {
+            // if vacant, we are good to go to insert the record
+            Entry::Vacant(vacant_entry) => {
+                let c2pa_table = TableC2PA {
+                    major_version: record.major_version(),
+                    minor_version: record.minor_version(),
+                    active_manifest_uri: record
+                        .active_manifest_uri()
+                        .map(|s| s.to_owned()),
+                    manifest_store: record
+                        .content_credential()
+                        .map(|s| s.to_vec()),
+                };
+                vacant_entry.insert(NamedTable::C2PA(c2pa_table));
+                Ok(())
+            }
+            // Otherwise, we are in an error state
+            Entry::Occupied(_occupied_entry) => {
+                Err(FontIoError::ContentCredentialAlreadyExists)
+            }
+        }
+    }
+
+    fn has_c2pa(&self) -> bool {
+        self.tables.contains_key(&FontTag::C2PA)
+    }
+
+    fn get_c2pa(
+        self,
+    ) -> Result<Option<crate::c2pa::ContentCredentialRecord>, Self::Error> {
+        if let Some(NamedTable::C2PA(table)) = self.tables.get(&FontTag::C2PA) {
+            let record = crate::c2pa::ContentCredentialRecord::try_from(table)?;
+            Ok(Some(record))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn remove_c2pa_record(&mut self) -> Result<(), Self::Error> {
+        match self.tables.entry(FontTag::C2PA) {
+            Entry::Vacant(_vacant_entry) => {
+                Err(FontIoError::ContentCredentialNotFound)
+            }
+            Entry::Occupied(occupied_entry) => {
+                occupied_entry.remove();
+                Ok(())
+            }
+        }
+    }
+}
+
+impl UpdatableC2PA for SfntFont {
+    type Error = FontIoError;
+
+    fn update_c2pa_record(
+        &mut self,
+        record: crate::c2pa::UpdateContentCredentialRecord,
+    ) -> Result<(), Self::Error> {
+        // Look for an entry int he table
+        match self.tables.entry(FontTag::C2PA) {
+            // if vacant, we are good to go to insert the record
+            Entry::Vacant(vacant_entry) => {
+                let mut c2pa_table = TableC2PA::default();
+                c2pa_table.update_c2pa_record(record)?;
+                vacant_entry.insert(NamedTable::C2PA(c2pa_table));
+                Ok(())
+            }
+            // Otherwise, we already have a record, so we need to update it
+            Entry::Occupied(mut occupied_entry) => {
+                match occupied_entry.get_mut() {
+                    NamedTable::C2PA(table_c2pa) => {
+                        table_c2pa.update_c2pa_record(record)?;
+                        Ok(())
+                    }
+                    _ => Err(FontIoError::ContentCredentialNotFound),
+                }
+            }
+        }
+    }
+}
+
 impl Font for SfntFont {
     type Directory = SfntDirectory;
     type Header = SfntHeader;
+    type Table = NamedTable;
 
     fn header(&self) -> &Self::Header {
         &self.header
@@ -200,8 +304,112 @@ impl Font for SfntFont {
     fn directory(&self) -> &Self::Directory {
         &self.directory
     }
+
+    fn contains_table(&self, tag: &FontTag) -> bool {
+        self.tables.contains_key(tag)
+    }
+
+    fn table(&self, tag: &FontTag) -> Option<&Self::Table> {
+        self.tables.get(tag)
+    }
 }
 
+impl ChunkReader for SfntFont {
+    type Error = FontIoError;
+
+    fn get_chunk_positions<T: Read + Seek + ?Sized>(
+        &self,
+        reader: &mut T,
+    ) -> core::result::Result<Vec<crate::ChunkPosition>, Self::Error> {
+        // Rewind to start and read the SFNT header and directory - that's
+        // really all we need in order to map the chunks.
+        reader.rewind()?;
+        let header = SfntHeader::from_reader(reader)?;
+        let size_to_read = header.numTables as usize * SfntDirectoryEntry::SIZE;
+        let offset = reader.stream_position()?;
+        let directory =
+            SfntDirectory::from_reader_exact(reader, offset, size_to_read)?;
+
+        // TBD - Streamlined approach:
+        // 1 - Header + directory
+        // 2 - Data from start to head::checksumAdjustment
+        // 3 - head::checksumAdjustment
+        // 4 - Data from head::checksumAdjustment through penultimate table
+        // 5 - The C2PA table
+
+        // The first chunk excludes the header & directory from hashing
+        let mut positions: Vec<ChunkPosition> = Vec::new();
+        positions.push(ChunkPosition {
+            offset: 0,
+            length: size_of::<SfntHeader>()
+                + header.numTables as usize * size_of::<SfntDirectoryEntry>(),
+            name: SFNT_HEADER_CHUNK_NAME.data(),
+            chunk_type: ChunkType::Header,
+        });
+
+        // The subsequent chunks represent the tables. All table data is hashed,
+        // with two exceptions:
+        // - The C2PA table itself.
+        // - The head table's `checksumAdjustment` field.
+        for entry in directory.physical_order() {
+            match entry.tag {
+                FontTag::C2PA => {
+                    positions.push(ChunkPosition {
+                        offset: entry.offset as usize,
+                        length: entry.length as usize,
+                        name: entry.tag.data(),
+                        chunk_type: ChunkType::TableDataExcluded,
+                    });
+                }
+                FontTag::HEAD => {
+                    // TBD - These hard-coded magic numbers could be mopped up
+                    // if only we could use offset_of, see https://github.com/rust-lang/rust/issues/106655
+                    positions.push(ChunkPosition {
+                        offset: entry.offset as usize,
+                        length: 8_usize,
+                        name: *b"hea0",
+                        chunk_type: ChunkType::TableDataIncluded,
+                    });
+                    positions.push(ChunkPosition {
+                        offset: entry.offset as usize + 8_usize,
+                        length: 4_usize,
+                        name: *b"hea1",
+                        chunk_type: ChunkType::TableDataExcluded,
+                    });
+                    positions.push(ChunkPosition {
+                        offset: entry.offset as usize + 12_usize,
+                        length: 42_usize,
+                        name: *b"hea2",
+                        chunk_type: ChunkType::TableDataIncluded,
+                    });
+                }
+                _ => {
+                    positions.push(ChunkPosition {
+                        offset: entry.offset as usize,
+                        length: entry.length as usize,
+                        name: entry.tag.data(),
+                        chunk_type: ChunkType::TableDataIncluded,
+                    });
+                }
+            }
+        }
+
+        // Do not iterate if the log level is not set to at least trace
+        // TODO: What to do about logging here?
+        /*
+        if log::max_level().cmp(&log::LevelFilter::Trace).is_ge() {
+            for (i, dirent) in directory.entries.iter().enumerate() {
+                trace!("get_chunk_positions/table[{:02}]: {:?}", i, &dirent);
+            }
+            for (i, chunk) in positions.iter().enumerate() {
+                trace!("get_chunk_positions/chunk[{:02}]: {:?}", i, &chunk);
+            }
+        }
+        */
+
+        Ok(positions)
+    }
+}
 #[cfg(test)]
 #[path = "font_test.rs"]
 mod tests;
