@@ -125,11 +125,6 @@ impl SfntDirectory {
         }
     }
 
-    /// Returns the entries in the directory.
-    pub(crate) fn entries(&self) -> &[SfntDirectoryEntry] {
-        &self.entries
-    }
-
     /// Adds an entry to the directory.
     pub(crate) fn add_entry(&mut self, entry: SfntDirectoryEntry) {
         self.entries.push(entry);

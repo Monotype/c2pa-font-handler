@@ -23,8 +23,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::{
     error::FontIoError, tag::FontTag, utils::u32_from_u16_pair,
-    FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
-    FontTable,
+    FontDataChecksum, FontDataExactRead, FontDataWrite, FontTable,
 };
 
 /// 'DSIG' font table, ignores actual signatures as we intend to only use this
@@ -58,26 +57,6 @@ impl TableDSIG {
             flags: Self::DO_NOT_RESIGN,
             data: Vec::new(),
         }
-    }
-}
-
-impl FontDataRead for TableDSIG {
-    type Error = FontIoError;
-
-    fn from_reader<T: Read + Seek + ?Sized>(
-        reader: &mut T,
-    ) -> Result<Self, Self::Error> {
-        let version = reader.read_u32::<BigEndian>()?;
-        let num_signatures = reader.read_u16::<BigEndian>()?;
-        let flags = reader.read_u16::<BigEndian>()?;
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
-        Ok(TableDSIG {
-            version,
-            numSignatures: num_signatures,
-            flags,
-            data,
-        })
     }
 }
 

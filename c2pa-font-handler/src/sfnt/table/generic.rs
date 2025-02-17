@@ -17,26 +17,13 @@ use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::{
     error::FontIoError, utils, FontDataChecksum, FontDataExactRead,
-    FontDataRead, FontDataWrite, FontTable,
+    FontDataWrite, FontTable,
 };
 
 /// Generic font table with unknown contents.
 pub struct TableGeneric {
     /// The raw data of the table
     pub data: Vec<u8>,
-}
-
-impl FontDataRead for TableGeneric {
-    type Error = FontIoError;
-
-    fn from_reader<T: Read + Seek + ?Sized>(
-        reader: &mut T,
-    ) -> Result<Self, Self::Error> {
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
-
-        Ok(TableGeneric { data })
-    }
 }
 
 impl FontDataExactRead for TableGeneric {

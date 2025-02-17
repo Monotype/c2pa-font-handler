@@ -23,8 +23,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::{
     error::FontIoError, tag::FontTag, utils::u32_from_u16_pair,
-    FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
-    FontTable,
+    FontDataChecksum, FontDataExactRead, FontDataWrite, FontTable,
 };
 
 /// Spec-mandated magic number for the 'head' table.
@@ -81,67 +80,6 @@ impl TableHead {
     const SIZE: usize = size_of::<Self>();
 }
 
-impl FontDataRead for TableHead {
-    type Error = FontIoError;
-
-    fn from_reader<T: Read + Seek + ?Sized>(
-        reader: &mut T,
-    ) -> Result<Self, Self::Error> {
-        let head = Self {
-            // 0x00
-            majorVersion: reader.read_u16::<BigEndian>()?,
-            minorVersion: reader.read_u16::<BigEndian>()?,
-            // 0x04
-            fontRevision: reader.read_u32::<BigEndian>()?,
-            // 0x08
-            checksumAdjustment: reader.read_u32::<BigEndian>()?,
-            // 0x0c
-            magicNumber: reader.read_u32::<BigEndian>()?,
-            // 0x10
-            flags: reader.read_u16::<BigEndian>()?,
-            unitsPerEm: reader.read_u16::<BigEndian>()?,
-            // 0x14
-            created: reader.read_i64::<BigEndian>()?,
-            // 0x1c
-            modified: reader.read_i64::<BigEndian>()?,
-            // 0x24
-            xMin: reader.read_i16::<BigEndian>()?,
-            yMin: reader.read_i16::<BigEndian>()?,
-            // 0x28
-            xMax: reader.read_i16::<BigEndian>()?,
-            yMax: reader.read_i16::<BigEndian>()?,
-            // 0x2c
-            macStyle: reader.read_u16::<BigEndian>()?,
-            lowestRecPPEM: reader.read_u16::<BigEndian>()?,
-            // 0x30
-            fontDirectionHint: reader.read_i16::<BigEndian>()?,
-            indexToLocFormat: reader.read_i16::<BigEndian>()?,
-            // 0x34
-            glyphDataFormat: reader.read_i16::<BigEndian>()?,
-            // 0x36 - 54 bytes
-            // TBD - Two bytes of padding to get to 56/0x38. Should we
-            // seek/discard two more bytes, just to leave the stream in a
-            // known state? Be nice if we didn't have to.
-            //   1. On the one hand, whoever's invoking us could more-
-            //      efficiently mess around with the offsets and padding.
-            //   B. On the other, for the .write() code, we definitely push
-            //      the "pad *yourself* up to four, impl!" approach
-            //   III. Likewise the .checksum() code (although, because this
-            //        is a simple checksum, the matter is moot; it doesn't
-            //        matter whether we add '0_u16' to the total.
-            //   IIII. (On clocks, IIII is a permissible Roman numeral) But
-            //      what about that "simple" '.len()' call? Should it
-            //      include the two pad bytes?
-            // For now, the surrounding code doesn't care how the read
-            // stream is left, so we don't do anything, since that is simplest.
-        };
-        if head.magicNumber != HEAD_TABLE_MAGIC_NUMBER {
-            return Err(FontIoError::InvalidHeadMagicNumber(head.magicNumber));
-        }
-        Ok(head)
-    }
-}
-
 impl FontDataExactRead for TableHead {
     type Error = FontIoError;
 
@@ -154,7 +92,61 @@ impl FontDataExactRead for TableHead {
         if size != Self::SIZE {
             Err(FontIoError::LoadTableTruncated(FontTag::HEAD))
         } else {
-            Self::from_reader(reader)
+            let head = Self {
+                // 0x00
+                majorVersion: reader.read_u16::<BigEndian>()?,
+                minorVersion: reader.read_u16::<BigEndian>()?,
+                // 0x04
+                fontRevision: reader.read_u32::<BigEndian>()?,
+                // 0x08
+                checksumAdjustment: reader.read_u32::<BigEndian>()?,
+                // 0x0c
+                magicNumber: reader.read_u32::<BigEndian>()?,
+                // 0x10
+                flags: reader.read_u16::<BigEndian>()?,
+                unitsPerEm: reader.read_u16::<BigEndian>()?,
+                // 0x14
+                created: reader.read_i64::<BigEndian>()?,
+                // 0x1c
+                modified: reader.read_i64::<BigEndian>()?,
+                // 0x24
+                xMin: reader.read_i16::<BigEndian>()?,
+                yMin: reader.read_i16::<BigEndian>()?,
+                // 0x28
+                xMax: reader.read_i16::<BigEndian>()?,
+                yMax: reader.read_i16::<BigEndian>()?,
+                // 0x2c
+                macStyle: reader.read_u16::<BigEndian>()?,
+                lowestRecPPEM: reader.read_u16::<BigEndian>()?,
+                // 0x30
+                fontDirectionHint: reader.read_i16::<BigEndian>()?,
+                indexToLocFormat: reader.read_i16::<BigEndian>()?,
+                // 0x34
+                glyphDataFormat: reader.read_i16::<BigEndian>()?,
+                // 0x36 - 54 bytes
+                // TBD - Two bytes of padding to get to 56/0x38. Should we
+                // seek/discard two more bytes, just to leave the stream in a
+                // known state? Be nice if we didn't have to.
+                //   1. On the one hand, whoever's invoking us could more-
+                //      efficiently mess around with the offsets and padding.
+                //   B. On the other, for the .write() code, we definitely push
+                //      the "pad *yourself* up to four, impl!" approach
+                //   III. Likewise the .checksum() code (although, because this
+                //        is a simple checksum, the matter is moot; it doesn't
+                //        matter whether we add '0_u16' to the total.
+                //   IIII. (On clocks, IIII is a permissible Roman numeral) But
+                //      what about that "simple" '.len()' call? Should it
+                //      include the two pad bytes?
+                // For now, the surrounding code doesn't care how the read
+                // stream is left, so we don't do anything, since that is
+                // simplest.
+            };
+            if head.magicNumber != HEAD_TABLE_MAGIC_NUMBER {
+                return Err(FontIoError::InvalidHeadMagicNumber(
+                    head.magicNumber,
+                ));
+            }
+            Ok(head)
         }
     }
 }

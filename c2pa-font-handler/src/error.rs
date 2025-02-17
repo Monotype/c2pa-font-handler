@@ -64,10 +64,6 @@ pub enum FontIoError {
     /// An error occurred while generating a string from UTF-8 bytes.
     #[error("Error occurred while generating a string from UTF-8 bytes: {0}")]
     StringFromUtf8(#[from] std::string::FromUtf8Error),
-    /// When attempting to read a certain number of bytes, not enough bytes
-    /// were read.
-    #[error("Failed to read enough bytes")]
-    NotEnoughBytes(std::io::Error),
     /// Save errors.
     #[error("Error saving the font: {0}")]
     SaveError(#[from] FontSaveError),

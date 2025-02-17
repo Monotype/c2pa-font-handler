@@ -33,7 +33,7 @@ fn test_table_dsig_read() {
         0x00, 0x00, // numSignatures
         0x00, 0x00, // flags
     ]);
-    let result = TableDSIG::from_reader(&mut reader);
+    let result = TableDSIG::from_reader_exact(&mut reader, 0, 8);
     assert!(result.is_ok());
     let dsig = result.unwrap();
     assert_eq!(dsig.version, 1);

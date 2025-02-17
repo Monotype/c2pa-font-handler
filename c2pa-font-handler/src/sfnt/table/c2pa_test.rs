@@ -60,7 +60,7 @@ fn test_from_reader_table_c2pa_raw_not_enough_data() {
     assert!(result.is_err());
     let error = result.err().unwrap();
     println!("{:?}", error);
-    assert!(matches!(error, FontIoError::NotEnoughBytes(_)));
+    assert!(matches!(error, FontIoError::IoError(_)));
 }
 
 #[test]
@@ -144,7 +144,7 @@ fn test_table_c2pa_from_reader() {
     data.extend_from_slice(b"test"); // active content uri
                                      // create a cursor/reader around the data
     let mut reader = Cursor::new(data);
-    let result = TableC2PA::from_reader(&mut reader);
+    let result = TableC2PA::from_reader_exact(&mut reader, 0, 28);
     assert!(result.is_ok());
     let table = result.unwrap();
     let major_version = table.major_version;
@@ -172,10 +172,13 @@ fn test_table_c2pa_from_reader_invalid_active_uri_offset() {
     data.extend_from_slice(b"test"); // active content uri
                                      // create a cursor/reader around the data
     let mut reader = Cursor::new(data);
-    let result = TableC2PA::from_reader(&mut reader);
+    let result = TableC2PA::from_reader_exact(&mut reader, 0, 28);
     assert!(result.is_err());
     let error = result.err().unwrap();
-    assert!(matches!(error, FontIoError::NotEnoughBytes(_)));
+    assert!(matches!(
+        error,
+        FontIoError::LoadTableTruncated(FontTag::C2PA)
+    ));
 }
 
 #[test]
@@ -189,12 +192,17 @@ fn test_table_c2pa_from_reader_invalid_manifest_offset() {
     data.extend_from_slice(&[0x00, 0x00]); // reserved
     data.extend_from_slice(&[0x00, 0x00, 0x10, 0x14]); // content_credential offset
     data.extend_from_slice(&[0x00, 0x00, 0x00, 0x04]); // content_credential length
-                                                       // create a cursor/reader around the data
+    let len = data.len();
+    // create a cursor/reader around the data
     let mut reader = Cursor::new(data);
-    let result = TableC2PA::from_reader(&mut reader);
+    let result = TableC2PA::from_reader_exact(&mut reader, 0, len);
     assert!(result.is_err());
     let error = result.err().unwrap();
-    assert!(matches!(error, FontIoError::NotEnoughBytes(_)));
+    println!("{:?}", error);
+    assert!(matches!(
+        error,
+        FontIoError::LoadTableTruncated(FontTag::C2PA)
+    ));
 }
 
 #[test]
@@ -208,9 +216,10 @@ fn test_table_c2pa_from_reader_with_no_data() {
     data.extend_from_slice(&[0x00, 0x00]); // reserved
     data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // content_credential offset
     data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // content_credential length
-                                                       // create a cursor/reader around the data
+    let len = data.len();
+    // create a cursor/reader around the data
     let mut reader = Cursor::new(data);
-    let result = TableC2PA::from_reader(&mut reader);
+    let result = TableC2PA::from_reader_exact(&mut reader, 0, len);
     assert!(result.is_ok());
     let table = result.unwrap();
     let major_version = table.major_version;
@@ -466,4 +475,104 @@ fn test_table_c2pa_update_with_new_manifest() {
     _ = table.update_c2pa_record(update_record);
     assert_eq!(table.active_manifest_uri, Some("test".to_string()));
     assert_eq!(table.manifest_store, Some(vec![5, 6, 7, 8]));
+}
+
+#[test]
+fn test_table_c2pa_read_exact_less_than_minimum() {
+    // There is enough data to read
+    let mut data = vec![];
+    data.extend_from_slice(&[0x00, 0x01]); // major_version
+    data.extend_from_slice(&[0x00, 0x04]); // minor_version
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // active manifest uri offset
+    data.extend_from_slice(&[0x00, 0x00]); // active manifest uri length
+    data.extend_from_slice(&[0x00, 0x00]); // reserved
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // content_credential offset
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // content_credential length
+    let mut reader = Cursor::new(data);
+    // But when calling the method we don't tell it to read enough data to
+    // capture the table
+    let result = TableC2PA::from_reader_exact(&mut reader, 0, 0);
+    assert!(result.is_err());
+    let error = result.err().unwrap();
+    assert!(matches!(
+        error,
+        FontIoError::LoadTableTruncated(FontTag::C2PA)
+    ));
+}
+
+#[test]
+fn test_table_c2pa_read_exact_fails_to_read_raw() {
+    // There is enough data to read
+    let mut data = vec![];
+    data.extend_from_slice(&[0x00, 0x01]); // major_version
+    data.extend_from_slice(&[0x00, 0x04]); // minor_version
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // active manifest uri offset
+    data.extend_from_slice(&[0x00, 0x00]); // active manifest uri length
+    data.extend_from_slice(&[0x00, 0x00]); // reserved
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // content_credential offset
+                                                       //data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // content_credential
+                                                       // length
+    let mut reader = Cursor::new(data);
+    // But when calling the method we don't tell it to read enough data to
+    // capture the table
+    let result = TableC2PA::from_reader_exact(
+        &mut reader,
+        0,
+        TableC2PARaw::MINIMUM_SIZE,
+    );
+    assert!(result.is_err());
+    let error = result.err().unwrap();
+    assert!(matches!(
+        error,
+        FontIoError::LoadTableTruncated(FontTag::C2PA)
+    ));
+}
+
+#[test]
+fn test_table_c2pa_read_exact_with_invalid_manifest_store() {
+    // There is enough data to read
+    let mut data = vec![];
+    data.extend_from_slice(&[0x00, 0x01]); // major_version
+    data.extend_from_slice(&[0x00, 0x04]); // minor_version
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // active manifest uri offset
+    data.extend_from_slice(&[0x00, 0x00]); // active manifest uri length
+    data.extend_from_slice(&[0x00, 0x00]); // reserved
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x14]); // content_credential offset
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x04]); // content_credential
+    data.extend_from_slice(b"ng"); // Incomplete content credential
+                                   // length
+    let mut reader = Cursor::new(data);
+    // But when calling the method we don't tell it to read enough data to
+    // capture the table
+    let result = TableC2PA::from_reader_exact(&mut reader, 0, 24);
+    assert!(result.is_err());
+    let error = result.err().unwrap();
+    assert!(matches!(
+        error,
+        FontIoError::LoadTableTruncated(FontTag::C2PA)
+    ));
+}
+
+#[test]
+fn test_table_c2pa_read_exact_with_invalid_uri_bytes() {
+    // There is enough data to read
+    let mut data = vec![];
+    data.extend_from_slice(&[0x00, 0x01]); // major_version
+    data.extend_from_slice(&[0x00, 0x04]); // minor_version
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x14]); // active manifest uri offset
+    data.extend_from_slice(&[0x00, 0x04]); // active manifest uri length
+    data.extend_from_slice(&[0x00, 0x00]); // reserved
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // content_credential offset
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // content_credential
+                                                       // Then write 4 non-UTF-8 bytes
+    data.extend_from_slice(&[0xff, 0xff, 0xff, 0xff]);
+    // length
+    let mut reader = Cursor::new(data);
+    // But when calling the method we don't tell it to read enough data to
+    // capture the table
+    let result = TableC2PA::from_reader_exact(&mut reader, 0, 24);
+    assert!(result.is_err());
+    let error = result.err().unwrap();
+    println!("{:?}", error);
+    assert!(matches!(error, FontIoError::StringFromUtf8(_)));
 }

@@ -45,22 +45,6 @@ fn test_reader_exact_with_invalid_sized_buffer() {
 }
 
 #[test]
-fn test_table_generic_from_reader() {
-    let mut reader = Cursor::new(vec![
-        0x00, 0x00, 0x00, 0x01, // version
-        0x00, 0x00, // numSignatures
-        0x00, 0x00, // flags
-    ]);
-    let result = TableGeneric::from_reader(&mut reader);
-    assert!(result.is_ok());
-    let generic = result.unwrap();
-    assert_eq!(
-        generic.data,
-        vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]
-    );
-}
-
-#[test]
 fn test_table_generic_len() {
     let generic = TableGeneric {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],

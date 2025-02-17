@@ -47,7 +47,7 @@ fn test_reader_exact_with_invalid_sized_buffer() {
 #[test]
 fn test_reader_with_bad_magic_number() {
     let mut reader = std::io::Cursor::new(vec![0; TableHead::SIZE]);
-    let result = TableHead::from_reader(&mut reader);
+    let result = TableHead::from_reader_exact(&mut reader, 0, TableHead::SIZE);
     assert!(result.is_err());
     let err = result.err().unwrap();
     assert!(matches!(err, FontIoError::InvalidHeadMagicNumber(0u32)));
@@ -76,7 +76,7 @@ fn test_reader_with_valid_data() {
         0x02, 0x3d, // glyph data format
         0x00, 0x00, // padding
     ]);
-    let result = TableHead::from_reader(&mut reader);
+    let result = TableHead::from_reader_exact(&mut reader, 0, TableHead::SIZE);
     assert!(result.is_ok());
     let result = result.unwrap();
     let major_version = result.majorVersion;

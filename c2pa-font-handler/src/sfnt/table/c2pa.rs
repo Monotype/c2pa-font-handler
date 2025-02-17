@@ -29,8 +29,7 @@ use crate::{
     error::FontIoError,
     tag::FontTag,
     utils::{self, u32_from_u16_pair},
-    FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
-    FontTable,
+    FontDataChecksum, FontDataExactRead, FontDataWrite, FontTable,
 };
 
 /// 'C2PA' font table
@@ -99,36 +98,18 @@ impl TableC2PARaw {
             },
         })
     }
-}
 
-impl FontDataRead for TableC2PARaw {
-    type Error = FontIoError;
-
-    fn from_reader<T: Read + Seek + ?Sized>(
+    fn from_reader<T: Read + ?Sized>(
         reader: &mut T,
-    ) -> Result<Self, Self::Error> {
+    ) -> Result<Self, FontIoError> {
         Ok(Self {
-            majorVersion: reader
-                .read_u16::<BigEndian>()
-                .map_err(FontIoError::NotEnoughBytes)?,
-            minorVersion: reader
-                .read_u16::<BigEndian>()
-                .map_err(FontIoError::NotEnoughBytes)?,
-            activeManifestUriOffset: reader
-                .read_u32::<BigEndian>()
-                .map_err(FontIoError::NotEnoughBytes)?,
-            activeManifestUriLength: reader
-                .read_u16::<BigEndian>()
-                .map_err(FontIoError::NotEnoughBytes)?,
-            reserved: reader
-                .read_u16::<BigEndian>()
-                .map_err(FontIoError::NotEnoughBytes)?,
-            manifestStoreOffset: reader
-                .read_u32::<BigEndian>()
-                .map_err(FontIoError::NotEnoughBytes)?,
-            manifestStoreLength: reader
-                .read_u32::<BigEndian>()
-                .map_err(FontIoError::NotEnoughBytes)?,
+            majorVersion: reader.read_u16::<BigEndian>()?,
+            minorVersion: reader.read_u16::<BigEndian>()?,
+            activeManifestUriOffset: reader.read_u32::<BigEndian>()?,
+            activeManifestUriLength: reader.read_u16::<BigEndian>()?,
+            reserved: reader.read_u16::<BigEndian>()?,
+            manifestStoreOffset: reader.read_u32::<BigEndian>()?,
+            manifestStoreLength: reader.read_u32::<BigEndian>()?,
         })
     }
 }
@@ -181,22 +162,36 @@ pub struct TableC2PA {
     pub manifest_store: Option<Vec<u8>>,
 }
 
-impl FontDataRead for TableC2PA {
+impl FontDataExactRead for TableC2PA {
     type Error = FontIoError;
 
-    fn from_reader<T: Read + Seek + ?Sized>(
+    fn from_reader_exact<T: Read + Seek + ?Sized>(
         reader: &mut T,
+        offset: u64,
+        size: usize,
     ) -> Result<Self, Self::Error> {
-        // Grab the current position as the position of the C2PA table
-        // from the start, as we will need it later to get the active
-        // manifest uri and the manifest store.
-        let table_position = reader.stream_position()?;
+        // We need at least the amount of the raw table to read in
+        if size < size_of::<TableC2PARaw>() {
+            return Err(FontIoError::LoadTableTruncated(FontTag::C2PA));
+        }
+        reader.seek(SeekFrom::Start(offset))?;
+
         // Placeholders
         let mut active_manifest_uri: Option<String> = None;
         let mut manifest_store: Option<Vec<u8>> = None;
 
         // Read in the raw C2PA table from the reader
-        let raw_table: TableC2PARaw = TableC2PARaw::from_reader(reader)?;
+        let raw_table: TableC2PARaw = TableC2PARaw::from_reader(reader)
+            .map_err(|_| FontIoError::LoadTableTruncated(FontTag::C2PA))?;
+
+        // Sanity check we are reading the correct amount of data
+        if (TableC2PARaw::MINIMUM_SIZE
+            + raw_table.activeManifestUriLength as usize
+            + raw_table.manifestStoreLength as usize)
+            != size
+        {
+            return Err(FontIoError::LoadTableTruncated(FontTag::C2PA));
+        }
 
         // If the active manifest URI offset is greater than 0, then we will
         // read it in
@@ -204,11 +199,11 @@ impl FontDataRead for TableC2PA {
             let mut uri_bytes: Vec<u8> =
                 vec![0; raw_table.activeManifestUriLength as usize];
             reader.seek(SeekFrom::Start(
-                table_position + raw_table.activeManifestUriOffset as u64,
+                offset + raw_table.activeManifestUriOffset as u64,
             ))?;
             reader
                 .read_exact(&mut uri_bytes)
-                .map_err(FontIoError::NotEnoughBytes)?;
+                .map_err(|_| FontIoError::LoadTableTruncated(FontTag::C2PA))?;
             active_manifest_uri = Some(
                 String::from_utf8(uri_bytes)
                     .map_err(FontIoError::StringFromUtf8)?,
@@ -220,11 +215,11 @@ impl FontDataRead for TableC2PA {
             let mut store_bytes: Vec<u8> =
                 vec![0; raw_table.manifestStoreLength as usize];
             reader.seek(SeekFrom::Start(
-                table_position + raw_table.manifestStoreOffset as u64,
+                offset + raw_table.manifestStoreOffset as u64,
             ))?;
             reader
                 .read_exact(&mut store_bytes)
-                .map_err(FontIoError::NotEnoughBytes)?;
+                .map_err(|_| FontIoError::LoadTableTruncated(FontTag::C2PA))?;
             manifest_store = Some(store_bytes);
         }
 
@@ -235,25 +230,6 @@ impl FontDataRead for TableC2PA {
             active_manifest_uri,
             manifest_store,
         })
-    }
-}
-
-impl FontDataExactRead for TableC2PA {
-    type Error = FontIoError;
-
-    fn from_reader_exact<T: Read + Seek + ?Sized>(
-        reader: &mut T,
-        offset: u64,
-        size: usize,
-    ) -> Result<Self, Self::Error> {
-        if size < size_of::<TableC2PARaw>() {
-            return Err(FontIoError::LoadTableTruncated(FontTag::C2PA));
-        }
-        reader.seek(SeekFrom::Start(offset))?;
-        // TODO: This is a bit of a hack, but it works for now.
-        //       We need to make sure the amount read is exactly the size of
-        //       `size`.
-        Self::from_reader(reader)
     }
 }
 
