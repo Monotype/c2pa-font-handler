@@ -105,7 +105,23 @@ impl FontDataChecksum for SfntDirectoryEntry {
     }
 }
 
-impl FontDirectoryEntry for SfntDirectoryEntry {}
+impl FontDirectoryEntry for SfntDirectoryEntry {
+    fn tag(&self) -> FontTag {
+        self.tag
+    }
+
+    fn data_checksum(&self) -> u32 {
+        self.checksum
+    }
+
+    fn offset(&self) -> u32 {
+        self.offset
+    }
+
+    fn length(&self) -> u32 {
+        self.length
+    }
+}
 
 /// SFNT Directory is just an array of entries.
 ///

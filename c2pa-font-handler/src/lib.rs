@@ -49,8 +49,6 @@ use std::{
 use tag::FontTag;
 
 pub mod c2pa;
-mod chunk_reader;
-pub use chunk_reader::*;
 pub mod error;
 pub(crate) mod magic;
 pub mod sfnt;
@@ -145,6 +143,14 @@ pub trait FontDirectory:
 pub trait FontDirectoryEntry:
     FontDataRead + FontDataChecksum + FontDataWrite
 {
+    /// Returns the tag of the table.
+    fn tag(&self) -> FontTag;
+    /// Returns the checksum of the table data.
+    fn data_checksum(&self) -> u32;
+    /// Returns the offset of the table.
+    fn offset(&self) -> u32;
+    /// Returns the length of the table.
+    fn length(&self) -> u32;
 }
 
 /// A table in a font.

@@ -17,7 +17,6 @@
 use std::{
     collections::{btree_map::Entry, BTreeMap},
     io::{Read, Seek},
-    mem::size_of,
     num::Wrapping,
 };
 
@@ -34,13 +33,10 @@ use crate::{
     sfnt::table::TableC2PA,
     tag::FontTag,
     utils::align_to_four,
-    ChunkPosition, ChunkReader, ChunkType, Font, FontDSIGStubber,
-    FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
-    FontDirectory, FontHeader, FontTable, MutFontDataWrite,
+    Font, FontDSIGStubber, FontDataChecksum, FontDataExactRead, FontDataRead,
+    FontDataWrite, FontDirectory, FontHeader, FontTable, MutFontDataWrite,
 };
 
-/// Pseudo-tag for the header
-const SFNT_HEADER_CHUNK_NAME: FontTag = FontTag { data: *b" HDR" };
 /// Pseudo-tag for the table directory
 const _SFNT_DIRECTORY_CHUNK_NAME: FontTag = FontTag { data: *b" DIR" };
 
@@ -331,102 +327,6 @@ impl Font for SfntFont {
     }
 }
 
-impl ChunkReader for SfntFont {
-    type Error = FontIoError;
-
-    fn get_chunk_positions<T: Read + Seek + ?Sized>(
-        &self,
-        reader: &mut T,
-    ) -> core::result::Result<Vec<crate::ChunkPosition>, Self::Error> {
-        // Rewind to start and read the SFNT header and directory - that's
-        // really all we need in order to map the chunks.
-        reader.rewind()?;
-        let header = SfntHeader::from_reader(reader)?;
-        let size_to_read = header.numTables as usize * SfntDirectoryEntry::SIZE;
-        let offset = reader.stream_position()?;
-        let directory =
-            SfntDirectory::from_reader_exact(reader, offset, size_to_read)?;
-
-        // TBD - Streamlined approach:
-        // 1 - Header + directory
-        // 2 - Data from start to head::checksumAdjustment
-        // 3 - head::checksumAdjustment
-        // 4 - Data from head::checksumAdjustment through penultimate table
-        // 5 - The C2PA table
-
-        // The first chunk excludes the header & directory from hashing
-        let mut positions: Vec<ChunkPosition> = Vec::new();
-        positions.push(ChunkPosition {
-            offset: 0,
-            length: size_of::<SfntHeader>()
-                + header.numTables as usize * size_of::<SfntDirectoryEntry>(),
-            name: SFNT_HEADER_CHUNK_NAME.data(),
-            chunk_type: ChunkType::Header,
-        });
-
-        // The subsequent chunks represent the tables. All table data is hashed,
-        // with two exceptions:
-        // - The C2PA table itself.
-        // - The head table's `checksumAdjustment` field.
-        for entry in directory.physical_order() {
-            match entry.tag {
-                FontTag::C2PA => {
-                    positions.push(ChunkPosition {
-                        offset: entry.offset as usize,
-                        length: entry.length as usize,
-                        name: entry.tag.data(),
-                        chunk_type: ChunkType::TableDataExcluded,
-                    });
-                }
-                FontTag::HEAD => {
-                    // TBD - These hard-coded magic numbers could be mopped up
-                    // if only we could use offset_of, see https://github.com/rust-lang/rust/issues/106655
-                    positions.push(ChunkPosition {
-                        offset: entry.offset as usize,
-                        length: 8_usize,
-                        name: *b"hea0",
-                        chunk_type: ChunkType::TableDataIncluded,
-                    });
-                    positions.push(ChunkPosition {
-                        offset: entry.offset as usize + 8_usize,
-                        length: 4_usize,
-                        name: *b"hea1",
-                        chunk_type: ChunkType::TableDataExcluded,
-                    });
-                    positions.push(ChunkPosition {
-                        offset: entry.offset as usize + 12_usize,
-                        length: 42_usize,
-                        name: *b"hea2",
-                        chunk_type: ChunkType::TableDataIncluded,
-                    });
-                }
-                _ => {
-                    positions.push(ChunkPosition {
-                        offset: entry.offset as usize,
-                        length: entry.length as usize,
-                        name: entry.tag.data(),
-                        chunk_type: ChunkType::TableDataIncluded,
-                    });
-                }
-            }
-        }
-
-        // Do not iterate if the log level is not set to at least trace
-        // TODO: What to do about logging here?
-        /*
-        if log::max_level().cmp(&log::LevelFilter::Trace).is_ge() {
-            for (i, dirent) in directory.entries.iter().enumerate() {
-                trace!("get_chunk_positions/table[{:02}]: {:?}", i, &dirent);
-            }
-            for (i, chunk) in positions.iter().enumerate() {
-                trace!("get_chunk_positions/chunk[{:02}]: {:?}", i, &chunk);
-            }
-        }
-        */
-
-        Ok(positions)
-    }
-}
 #[cfg(test)]
 #[path = "font_test.rs"]
 mod tests;
