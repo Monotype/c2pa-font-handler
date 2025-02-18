@@ -151,6 +151,23 @@ impl MutFontDataWrite for SfntFont {
             }
         });
 
+        if let Some(c2pa) = self.tables.get(&FontTag::C2PA) {
+            if !self
+                .directory
+                .entries()
+                .iter()
+                .any(|entry| entry.tag == FontTag::C2PA)
+            {
+                let neo_entry = SfntDirectoryEntry {
+                    tag: FontTag::C2PA,
+                    offset: running_offset,
+                    checksum: c2pa.checksum().0,
+                    length: c2pa.len(),
+                };
+                neo_directory.add_entry(neo_entry);
+            }
+        }
+
         // Sort our directory entries by tag.
         neo_directory.sort_entries(|entry| entry.tag);
 
