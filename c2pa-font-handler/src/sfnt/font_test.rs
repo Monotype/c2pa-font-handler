@@ -144,6 +144,44 @@ fn test_font_write_new_table_added() {
 }
 
 #[test]
+fn test_write_font_without_c2pa() {
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut reader = std::io::Cursor::new(font_data);
+    let mut font = SfntFont::from_reader(&mut reader).unwrap();
+    let mut writer = std::io::Cursor::new(Vec::new());
+    let result = font.write(&mut writer);
+    assert!(result.is_ok());
+    // Verify what is in writer
+    let written_data = writer.into_inner();
+    assert_eq!(font_data.len(), written_data.len());
+    assert_eq!(font_data, written_data.as_slice());
+}
+
+#[test]
+fn test_write_font_with_c2pa() {
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut reader = std::io::Cursor::new(font_data);
+    let mut font = SfntFont::from_reader(&mut reader).unwrap();
+    let record = ContentCredentialRecord::builder()
+        .with_version(1, 4)
+        .with_active_manifest_uri("https://example.com".to_string())
+        .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
+        .build()
+        .unwrap();
+    assert!(!font.has_c2pa());
+    font.add_c2pa_record(record).unwrap();
+    let mut writer = std::io::Cursor::new(Vec::new());
+    let result = font.write(&mut writer);
+    assert!(result.is_ok());
+    // Verify what is in writer
+    let written_data = writer.into_inner();
+    let mut new_reader = std::io::Cursor::new(&written_data);
+    let new_font = SfntFont::from_reader(&mut new_reader).unwrap();
+    assert!(new_font.has_c2pa());
+    assert_eq!(new_font.tables.len(), font.tables.len());
+}
+
+#[test]
 fn test_font_write_table_deleted() {
     let font_data = include_bytes!("../../../.devtools/font.otf");
     let mut reader = std::io::Cursor::new(font_data);
