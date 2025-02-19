@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -23,7 +23,8 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::{
     error::FontIoError, magic::Magic, utils::u32_from_u16_pair,
-    FontDataChecksum, FontDataRead, FontDataWrite, FontHeader,
+    FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
+    FontHeader,
 };
 
 /// All the serialization structures so far have been defined using native
@@ -77,6 +78,10 @@ impl FontDataRead for SfntHeader {
             rangeShift: reader.read_u16::<BigEndian>()?,
         })
     }
+}
+
+impl FontDataExactRead for SfntHeader {
+    type Error = FontIoError;
 
     fn from_reader_exact<T: Read + Seek + ?Sized>(
         reader: &mut T,

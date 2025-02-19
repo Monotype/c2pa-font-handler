@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -42,22 +42,6 @@ fn test_reader_exact_with_invalid_sized_buffer() {
     let err = result.err().unwrap();
     assert!(matches!(err, FontIoError::IoError(_)));
     assert_eq!(err.to_string(), "failed to fill whole buffer");
-}
-
-#[test]
-fn test_table_generic_from_reader() {
-    let mut reader = Cursor::new(vec![
-        0x00, 0x00, 0x00, 0x01, // version
-        0x00, 0x00, // numSignatures
-        0x00, 0x00, // flags
-    ]);
-    let result = TableGeneric::from_reader(&mut reader);
-    assert!(result.is_ok());
-    let generic = result.unwrap();
-    assert_eq!(
-        generic.data,
-        vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]
-    );
 }
 
 #[test]

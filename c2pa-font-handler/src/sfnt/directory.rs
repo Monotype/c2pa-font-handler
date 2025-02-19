@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ use std::{
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::{
-    error::FontIoError, tag::FontTag, FontDataChecksum, FontDataRead,
-    FontDataWrite, FontDirectory, FontDirectoryEntry,
+    error::FontIoError, tag::FontTag, FontDataChecksum, FontDataExactRead,
+    FontDataRead, FontDataWrite, FontDirectory, FontDirectoryEntry,
 };
 
 /// SFNT Table Directory Entry, from the OpenType spec.
@@ -40,7 +40,7 @@ pub struct SfntDirectoryEntry {
 
 impl SfntDirectoryEntry {
     /// The size of an SFNT directory entry.
-    pub(crate) const SIZE: usize = size_of::<Self>();
+    pub const SIZE: usize = size_of::<Self>();
 }
 
 impl FontDataRead for SfntDirectoryEntry {
@@ -60,6 +60,10 @@ impl FontDataRead for SfntDirectoryEntry {
             length,
         })
     }
+}
+
+impl FontDataExactRead for SfntDirectoryEntry {
+    type Error = FontIoError;
 
     fn from_reader_exact<T: Read + Seek + ?Sized>(
         reader: &mut T,
@@ -101,14 +105,30 @@ impl FontDataChecksum for SfntDirectoryEntry {
     }
 }
 
-impl FontDirectoryEntry for SfntDirectoryEntry {}
+impl FontDirectoryEntry for SfntDirectoryEntry {
+    fn tag(&self) -> FontTag {
+        self.tag
+    }
+
+    fn data_checksum(&self) -> u32 {
+        self.checksum
+    }
+
+    fn offset(&self) -> u32 {
+        self.offset
+    }
+
+    fn length(&self) -> u32 {
+        self.length
+    }
+}
 
 /// SFNT Directory is just an array of entries.
 ///
 /// Undoubtedly there exists a more-oxidized way of just using Vec directly for
 /// this... but maybe we don't want to? Note the choice of Vec over BTreeMap
 /// here, which lets us keep non-compliant fonts as-is...
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SfntDirectory {
     entries: Vec<SfntDirectoryEntry>,
 }
@@ -119,11 +139,6 @@ impl SfntDirectory {
         Self {
             entries: Vec::new(),
         }
-    }
-
-    /// Returns the entries in the directory.
-    pub(crate) fn entries(&self) -> &[SfntDirectoryEntry] {
-        &self.entries
     }
 
     /// Adds an entry to the directory.
@@ -141,29 +156,24 @@ impl SfntDirectory {
     }
 }
 
-impl FontDataRead for SfntDirectory {
+impl FontDataExactRead for SfntDirectory {
     type Error = FontIoError;
-
-    fn from_reader<T: Read + Seek + ?Sized>(
-        reader: &mut T,
-    ) -> Result<Self, Self::Error> {
-        let mut entries = Vec::new();
-        while let Ok(entry) = SfntDirectoryEntry::from_reader(reader) {
-            entries.push(entry);
-        }
-        Ok(Self { entries })
-    }
 
     fn from_reader_exact<T: Read + Seek + ?Sized>(
         reader: &mut T,
         offset: u64,
         size: usize,
     ) -> Result<Self, Self::Error> {
-        if size % 16 != 0 {
+        if size % SfntDirectoryEntry::SIZE != 0 {
             return Err(FontIoError::InvalidSizeForDirectory(size));
         }
+        let entry_count = size / SfntDirectoryEntry::SIZE;
         reader.seek(std::io::SeekFrom::Start(offset))?;
-        Self::from_reader(reader)
+        let mut entries = Vec::with_capacity(entry_count);
+        for _ in 0..entry_count {
+            entries.push(SfntDirectoryEntry::from_reader(reader)?);
+        }
+        Ok(Self { entries })
     }
 }
 
@@ -200,12 +210,16 @@ impl FontDirectory for SfntDirectory {
     fn from_reader_with_count<T: Read + Seek + ?Sized>(
         reader: &mut T,
         entry_count: usize,
-    ) -> Result<Self, <Self as FontDataRead>::Error> {
+    ) -> Result<Self, <Self as FontDataExactRead>::Error> {
         let mut entries = Vec::with_capacity(entry_count);
         for _ in 0..entry_count {
             entries.push(SfntDirectoryEntry::from_reader(reader)?);
         }
         Ok(Self { entries })
+    }
+
+    fn entries(&self) -> &[Self::Entry] {
+        &self.entries
     }
 
     fn physical_order(&self) -> Vec<&Self::Entry> {

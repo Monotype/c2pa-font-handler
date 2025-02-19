@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -15,7 +15,11 @@
 //! Tests for SFNT font.
 
 use super::*;
-use crate::{error::FontIoError, sfnt::table::generic::TableGeneric};
+use crate::{
+    c2pa::{ContentCredentialRecord, UpdateContentCredentialRecord},
+    error::FontIoError,
+    sfnt::table::generic::TableGeneric,
+};
 
 #[test]
 fn test_load_of_font() {
@@ -122,6 +126,12 @@ fn test_font_write_new_table_added() {
     font.tables
         .insert(FontTag::new(*b"test"), NamedTable::Generic(new_table));
 
+    let new_table = TableGeneric {
+        data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
+    };
+    font.tables
+        .insert(FontTag::new(*b"te5t"), NamedTable::Generic(new_table));
+
     // Write the font to the writer
     let result = font.write(&mut writer);
 
@@ -134,6 +144,44 @@ fn test_font_write_new_table_added() {
 }
 
 #[test]
+fn test_write_font_without_c2pa() {
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut reader = std::io::Cursor::new(font_data);
+    let mut font = SfntFont::from_reader(&mut reader).unwrap();
+    let mut writer = std::io::Cursor::new(Vec::new());
+    let result = font.write(&mut writer);
+    assert!(result.is_ok());
+    // Verify what is in writer
+    let written_data = writer.into_inner();
+    assert_eq!(font_data.len(), written_data.len());
+    assert_eq!(font_data, written_data.as_slice());
+}
+
+#[test]
+fn test_write_font_with_c2pa() {
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut reader = std::io::Cursor::new(font_data);
+    let mut font = SfntFont::from_reader(&mut reader).unwrap();
+    let record = ContentCredentialRecord::builder()
+        .with_version(1, 4)
+        .with_active_manifest_uri("https://example.com".to_string())
+        .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
+        .build()
+        .unwrap();
+    assert!(!font.has_c2pa());
+    font.add_c2pa_record(record).unwrap();
+    let mut writer = std::io::Cursor::new(Vec::new());
+    let result = font.write(&mut writer);
+    assert!(result.is_ok());
+    // Verify what is in writer
+    let written_data = writer.into_inner();
+    let mut new_reader = std::io::Cursor::new(&written_data);
+    let new_font = SfntFont::from_reader(&mut new_reader).unwrap();
+    assert!(new_font.has_c2pa());
+    assert_eq!(new_font.tables.len(), font.tables.len());
+}
+
+#[test]
 fn test_font_write_table_deleted() {
     let font_data = include_bytes!("../../../.devtools/font.otf");
     let mut reader = std::io::Cursor::new(font_data);
@@ -142,6 +190,7 @@ fn test_font_write_table_deleted() {
 
     // Remove a table from the font
     font.tables.remove(&FontTag::DSIG);
+    font.tables.remove(&FontTag::HEAD);
 
     // Write the font to the writer
     let result = font.write(&mut writer);
@@ -177,4 +226,137 @@ fn test_font_as_font_trait() {
     assert_eq!(font.header().sfntVersion as u32, 0x4f54544f);
     assert_eq!(11, font.header().num_tables());
     assert_eq!(11, font.directory().entries().len());
+    assert!(font.contains_table(&FontTag::new(*b"DSIG")));
+    let table = font.table(&FontTag::new(*b"DSIG"));
+    assert!(table.is_some());
+    let table = table.unwrap();
+    assert_eq!(table.len(), 8);
+}
+
+#[test]
+fn test_adding_c2pa_record() {
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut reader = std::io::Cursor::new(font_data);
+    let mut font = SfntFont::from_reader(&mut reader).unwrap();
+    let record = ContentCredentialRecord::builder()
+        .with_version(1, 4)
+        .with_active_manifest_uri("https://example.com".to_string())
+        .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
+        .build()
+        .unwrap();
+    let result = font.add_c2pa_record(record);
+    assert!(result.is_ok());
+    assert!(font.has_c2pa());
+    let result = font.get_c2pa();
+    assert!(result.is_ok());
+    let record = result.unwrap().unwrap();
+    assert_eq!(record.major_version(), 1);
+    assert_eq!(record.minor_version(), 4);
+    assert_eq!(record.active_manifest_uri().unwrap(), "https://example.com");
+    assert_eq!(
+        record.content_credential().unwrap(),
+        &[0x00, 0x01, 0x02, 0x03]
+    );
+}
+
+#[test]
+fn test_adding_c2pa_record_when_one_exists() {
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut reader = std::io::Cursor::new(font_data);
+    let mut font = SfntFont::from_reader(&mut reader).unwrap();
+    let record = ContentCredentialRecord::builder()
+        .with_version(1, 4)
+        .with_active_manifest_uri("https://example.com".to_string())
+        .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
+        .build()
+        .unwrap();
+    let result = font.add_c2pa_record(record.clone());
+    assert!(result.is_ok());
+    assert!(font.has_c2pa());
+    let result = font.add_c2pa_record(record);
+    assert!(result.is_err());
+    let err = result.err().unwrap();
+    assert!(matches!(err, FontIoError::ContentCredentialAlreadyExists));
+}
+
+#[test]
+fn test_removing_c2pa_record() {
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut reader = std::io::Cursor::new(font_data);
+    let mut font = SfntFont::from_reader(&mut reader).unwrap();
+    let record = ContentCredentialRecord::builder()
+        .with_version(1, 4)
+        .with_active_manifest_uri("https://example.com".to_string())
+        .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
+        .build()
+        .unwrap();
+    let result = font.add_c2pa_record(record);
+    assert!(result.is_ok());
+    assert!(font.has_c2pa());
+    let result = font.remove_c2pa_record();
+    assert!(result.is_ok());
+    let result = font.get_c2pa();
+    assert!(result.is_ok());
+    let value = result.unwrap();
+    assert!(value.is_none());
+}
+
+#[test]
+fn test_removing_c2pa_record_when_one_does_not_exists() {
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut reader = std::io::Cursor::new(font_data);
+    let mut font = SfntFont::from_reader(&mut reader).unwrap();
+    let result = font.remove_c2pa_record();
+    assert!(result.is_err());
+    let err = result.err().unwrap();
+    assert!(matches!(err, FontIoError::ContentCredentialNotFound));
+}
+
+#[test]
+fn test_updating_c2pa_record_when_occupied() {
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut reader = std::io::Cursor::new(font_data);
+    let mut font = SfntFont::from_reader(&mut reader).unwrap();
+    let record = ContentCredentialRecord::builder()
+        .with_version(1, 4)
+        .with_active_manifest_uri("https://example.com".to_string())
+        .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
+        .build()
+        .unwrap();
+    font.add_c2pa_record(record).unwrap();
+    let update_record = UpdateContentCredentialRecord::builder()
+        .without_active_manifest_uri()
+        .build();
+    let result = font.update_c2pa_record(update_record);
+    assert!(result.is_ok());
+    assert!(font.has_c2pa());
+    let result = font.get_c2pa();
+    assert!(result.is_ok());
+    let record = result.unwrap().unwrap();
+    assert_eq!(record.major_version(), 1);
+    assert_eq!(record.minor_version(), 4);
+    assert_eq!(record.active_manifest_uri(), None);
+    assert_eq!(
+        record.content_credential().unwrap(),
+        &[0x00, 0x01, 0x02, 0x03]
+    );
+}
+#[test]
+fn test_updating_c2pa_record_when_vacant() {
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut reader = std::io::Cursor::new(font_data);
+    let mut font = SfntFont::from_reader(&mut reader).unwrap();
+    let update_record = UpdateContentCredentialRecord::builder()
+        .without_active_manifest_uri()
+        .build();
+    let result = font.update_c2pa_record(update_record);
+    assert!(result.is_ok());
+    assert!(font.has_c2pa());
+    let result = font.get_c2pa();
+    assert!(result.is_ok());
+    let record = result.unwrap().unwrap();
+    assert_eq!(record.major_version(), 1);
+    assert_eq!(record.minor_version(), 4);
+    assert_eq!(record.active_manifest_uri(), None);
+    assert_eq!(record.content_credential(), None);
 }

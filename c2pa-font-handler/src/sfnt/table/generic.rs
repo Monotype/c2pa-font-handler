@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -16,26 +16,18 @@
 use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::{
-    error::FontIoError, utils, FontDataChecksum, FontDataRead, FontDataWrite,
-    FontTable,
+    error::FontIoError, utils, FontDataChecksum, FontDataExactRead,
+    FontDataWrite, FontTable,
 };
 
 /// Generic font table with unknown contents.
-pub(crate) struct TableGeneric {
+pub struct TableGeneric {
+    /// The raw data of the table
     pub data: Vec<u8>,
 }
 
-impl FontDataRead for TableGeneric {
+impl FontDataExactRead for TableGeneric {
     type Error = FontIoError;
-
-    fn from_reader<T: Read + Seek + ?Sized>(
-        reader: &mut T,
-    ) -> Result<Self, Self::Error> {
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
-
-        Ok(TableGeneric { data })
-    }
 
     fn from_reader_exact<T: Read + Seek + ?Sized>(
         reader: &mut T,
