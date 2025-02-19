@@ -425,8 +425,9 @@ fn test_table_c2pa_update_remove_uri() {
         active_manifest_uri: Some("test".to_string()),
         manifest_store: Some(vec![1, 2, 3, 4]),
     };
-    let mut update_record = UpdateContentCredentialRecord::default();
-    update_record.without_active_manifest_uri();
+    let update_record = UpdateContentCredentialRecord::builder()
+        .without_active_manifest_uri()
+        .build();
     _ = table.update_c2pa_record(update_record);
     assert_eq!(table.active_manifest_uri, None);
     assert_eq!(table.manifest_store, Some(vec![1, 2, 3, 4]));
@@ -440,8 +441,9 @@ fn test_table_c2pa_update_with_new_uri() {
         active_manifest_uri: Some("test".to_string()),
         manifest_store: Some(vec![1, 2, 3, 4]),
     };
-    let mut update_record = UpdateContentCredentialRecord::default();
-    update_record.with_active_manifest_uri("new_test".to_string());
+    let update_record = UpdateContentCredentialRecord::builder()
+        .with_active_manifest_uri("new_test".to_string())
+        .build();
     _ = table.update_c2pa_record(update_record);
     assert_eq!(table.active_manifest_uri, Some("new_test".to_string()));
     assert_eq!(table.manifest_store, Some(vec![1, 2, 3, 4]));
@@ -455,8 +457,9 @@ fn test_table_c2pa_update_remove_manifest() {
         active_manifest_uri: Some("test".to_string()),
         manifest_store: Some(vec![1, 2, 3, 4]),
     };
-    let mut update_record = UpdateContentCredentialRecord::default();
-    update_record.without_content_credentials();
+    let update_record = UpdateContentCredentialRecord::builder()
+        .without_content_credentials()
+        .build();
     _ = table.update_c2pa_record(update_record);
     assert_eq!(table.active_manifest_uri, Some("test".to_string()));
     assert_eq!(table.manifest_store, None);
@@ -470,8 +473,9 @@ fn test_table_c2pa_update_with_new_manifest() {
         active_manifest_uri: Some("test".to_string()),
         manifest_store: Some(vec![1, 2, 3, 4]),
     };
-    let mut update_record = UpdateContentCredentialRecord::default();
-    update_record.with_content_credential(vec![5, 6, 7, 8]);
+    let update_record = UpdateContentCredentialRecord::builder()
+        .with_content_credential(vec![5, 6, 7, 8])
+        .build();
     _ = table.update_c2pa_record(update_record);
     assert_eq!(table.active_manifest_uri, Some("test".to_string()));
     assert_eq!(table.manifest_store, Some(vec![5, 6, 7, 8]));

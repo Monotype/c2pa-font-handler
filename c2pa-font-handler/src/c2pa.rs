@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//! C2PA Support
+//! Module for supporting adding, removing, and updating C2PA records.
 
 use crate::{error::FontIoError, sfnt::table::TableC2PA};
 
@@ -51,7 +51,7 @@ pub trait UpdatableC2PA {
     /// Error type returned from updating C2PA records
     type Error;
 
-    /// Updates a C2PA record, returning None if there wasn't a record before
+    /// Updates a C2PA record, returning `None` if there wasn't a record before
     /// or the previous record if there was one.
     fn update_c2pa_record(
         &mut self,
@@ -135,23 +135,11 @@ pub enum UpdateType<T: std::fmt::Debug> {
 /// Update Content Credential Record
 #[derive(Default, Debug)]
 pub struct UpdateContentCredentialRecord {
-    major_version: Option<UpdateType<u16>>,
-    minor_version: Option<UpdateType<u16>>,
     active_manifest_uri: Option<UpdateType<String>>,
     content_credential: Option<UpdateType<Vec<u8>>>,
 }
 
 impl UpdateContentCredentialRecord {
-    /// Gets the major version of the record
-    pub fn major_version(&mut self) -> Option<UpdateType<u16>> {
-        self.major_version.take()
-    }
-
-    /// Gets the minor version of the record
-    pub fn minor_version(&mut self) -> Option<UpdateType<u16>> {
-        self.minor_version.take()
-    }
-
     /// Gets the active manifest URI
     pub fn take_active_manifest_uri(&mut self) -> Option<UpdateType<String>> {
         self.active_manifest_uri.take()
@@ -162,37 +150,57 @@ impl UpdateContentCredentialRecord {
         self.content_credential.take()
     }
 
-    /// Uses a custom version for the record.
-    pub fn with_version(&mut self, major_version: u16, minor_version: u16) {
-        self.major_version = Some(UpdateType::Update(major_version));
-        self.minor_version = Some(UpdateType::Update(minor_version));
+    /// Gets a builder to build an [`UpdateContentCredentialRecord`] for use.
+    pub fn builder() -> UpdateContentCredentialRecordBuilder {
+        UpdateContentCredentialRecordBuilder::default()
     }
+}
 
-    /// Removes the version
-    pub fn without_a_version(&mut self) {
-        self.major_version = Some(UpdateType::Remove);
-        self.minor_version = Some(UpdateType::Remove);
-    }
+/// A Builder for an [`UpdateContentCredentialRecord`].
+#[derive(Default)]
+pub struct UpdateContentCredentialRecordBuilder {
+    active_manifest_uri: Option<UpdateType<String>>,
+    content_credential: Option<UpdateType<Vec<u8>>>,
+}
 
+impl UpdateContentCredentialRecordBuilder {
     /// Uses a specific active manifest URI
-    pub fn with_active_manifest_uri(&mut self, active_manifest_uri: String) {
+    pub fn with_active_manifest_uri(
+        mut self,
+        active_manifest_uri: String,
+    ) -> Self {
         self.active_manifest_uri =
             Some(UpdateType::Update(active_manifest_uri));
+        self
     }
 
     /// Removes the active manifest URI
-    pub fn without_active_manifest_uri(&mut self) {
+    pub fn without_active_manifest_uri(mut self) -> Self {
         self.active_manifest_uri = Some(UpdateType::Remove);
+        self
     }
 
     /// Uses the specified content credential
-    pub fn with_content_credential(&mut self, content_credential: Vec<u8>) {
+    pub fn with_content_credential(
+        mut self,
+        content_credential: Vec<u8>,
+    ) -> Self {
         self.content_credential = Some(UpdateType::Update(content_credential));
+        self
     }
 
     /// Removes the content credential
-    pub fn without_content_credentials(&mut self) {
+    pub fn without_content_credentials(mut self) -> Self {
         self.content_credential = Some(UpdateType::Remove);
+        self
+    }
+
+    /// Builds the [`UpdateContentCredentialRecord`].
+    pub fn build(self) -> UpdateContentCredentialRecord {
+        UpdateContentCredentialRecord {
+            active_manifest_uri: self.active_manifest_uri,
+            content_credential: self.content_credential,
+        }
     }
 }
 

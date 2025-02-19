@@ -286,8 +286,9 @@ fn test_updating_c2pa_record_when_occupied() {
         .build()
         .unwrap();
     font.add_c2pa_record(record).unwrap();
-    let mut update_record = UpdateContentCredentialRecord::default();
-    update_record.without_active_manifest_uri();
+    let update_record = UpdateContentCredentialRecord::builder()
+        .without_active_manifest_uri()
+        .build();
     let result = font.update_c2pa_record(update_record);
     assert!(result.is_ok());
     assert!(font.has_c2pa());
@@ -307,8 +308,9 @@ fn test_updating_c2pa_record_when_vacant() {
     let font_data = include_bytes!("../../../.devtools/font.otf");
     let mut reader = std::io::Cursor::new(font_data);
     let mut font = SfntFont::from_reader(&mut reader).unwrap();
-    let mut update_record = UpdateContentCredentialRecord::default();
-    update_record.without_active_manifest_uri();
+    let update_record = UpdateContentCredentialRecord::builder()
+        .without_active_manifest_uri()
+        .build();
     let result = font.update_c2pa_record(update_record);
     assert!(result.is_ok());
     assert!(font.has_c2pa());

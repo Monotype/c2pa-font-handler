@@ -88,20 +88,13 @@ fn test_record_builder_invalid_minor_version() {
 
 #[test]
 fn test_update_record_removed_items() {
-    let mut update_record = UpdateContentCredentialRecord {
-        major_version: None,
-        minor_version: None,
-        active_manifest_uri: None,
-        content_credential: None,
-    };
-    update_record.without_a_version();
-    update_record.without_active_manifest_uri();
-    update_record.without_content_credentials();
+    let update_record = UpdateContentCredentialRecord::builder()
+        .without_active_manifest_uri()
+        .without_content_credentials()
+        .build();
     assert!(matches!(
         update_record,
         UpdateContentCredentialRecord {
-            major_version: Some(UpdateType::Remove),
-            minor_version: Some(UpdateType::Remove),
             active_manifest_uri: Some(UpdateType::Remove),
             content_credential: Some(UpdateType::Remove),
         }
@@ -110,26 +103,10 @@ fn test_update_record_removed_items() {
 
 #[test]
 fn test_update_record_updated_items() {
-    let mut update_record = UpdateContentCredentialRecord {
-        major_version: None,
-        minor_version: None,
-        active_manifest_uri: None,
-        content_credential: None,
-    };
-    update_record.with_version(1, 4);
-    update_record
-        .with_active_manifest_uri("http://example.com/manifest".to_owned());
-    update_record.with_content_credential(vec![1, 2, 3, 4]);
-    assert!(matches!(
-        update_record.major_version(),
-        Some(UpdateType::Update(1))
-    ));
-    assert!(update_record.major_version().is_none());
-    assert!(matches!(
-        update_record.minor_version(),
-        Some(UpdateType::Update(4))
-    ));
-    assert!(update_record.minor_version().is_none());
+    let mut update_record = UpdateContentCredentialRecord::builder()
+        .with_active_manifest_uri("http://example.com/manifest".to_owned())
+        .with_content_credential(vec![1, 2, 3, 4])
+        .build();
     assert!(matches!(
         update_record.take_active_manifest_uri(),
         Some(UpdateType::Update(uri)) if uri == "http://example.com/manifest"
