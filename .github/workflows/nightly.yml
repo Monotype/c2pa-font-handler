@@ -24,7 +24,7 @@ on:
 jobs:
 
   audits:
-    uses: .github/workflows/.audits.yml
+    uses: ./.github/workflows/.audits.yml
     with:
       check_unused_deps: false
 
@@ -34,27 +34,27 @@ jobs:
         os: [ubuntu-latest]
         # Nightly checks for the latest stable and nightly toolchains
         rust_version: [stable, nightly]
-    uses: .github/workflows/.builds.yml
+    uses: ./.github/workflows/.builds.yml
     with:
       os: ${{ matrix.os }}
       rust_version: ${{ matrix.rust_version }}
 
   code-smells:
-    uses: .github/workflows/.code-smells.yml
+    uses: ./.github/workflows/.code-smells.yml
   
   tests:
     strategy:
       matrix:
         os: [ubuntu-latest]
         rust_version: [stable, nightly]
-    uses: .github/workflows/.tests.yml
+    uses: ./.github/workflows/.tests.yml
     with:
       rust_version: ${{ matrix.rust_version }}
       os: ${{ matrix.os }}
       report_coverage: false
   
   attention:
-    uses: .github/workflows/.create-failed-workflow-pr.yml
+    uses: ./.github/workflows/.create-failed-workflow-pr.yml
     if: ${{ failure() }}
     needs: [audits, builds, code-smells, tests]
     with:

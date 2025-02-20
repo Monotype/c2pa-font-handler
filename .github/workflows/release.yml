@@ -24,7 +24,7 @@ jobs:
   # Update the rust workspace version (if it hasn't yet been updated), or if it
   # has been updated, created a tag to reflect the new workspace version.
   version-update:
-    uses: .github/workflows/.version-update.yml
+    uses: ./.github/workflows/.version-update.yml
     secrets: 
       # Use pitest user for creating PRs and tags.
       GITHUB_USER_NAME: ${{ secrets.PITEST_USER }}

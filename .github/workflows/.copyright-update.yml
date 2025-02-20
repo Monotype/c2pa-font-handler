@@ -57,7 +57,7 @@ jobs:
 
       - name: Update copyrights for modified files
         id: update-copyrights
-        uses: .github/actions/update-copyrights
+        uses: ./.github/actions/update-copyrights
         with:
           # Use pitest user for creating copyright update commits.
           actor: ${{ secrets.GITHUB_USER_NAME }}

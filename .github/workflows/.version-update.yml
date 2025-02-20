@@ -108,7 +108,7 @@ jobs:
 
     - name: Update the changelog
       id: update-changelog
-      uses: ".github/actions/update-changelog"
+      uses: ./.github/actions/update-changelog
       with:
         version: ${{ needs.get-versions-and-new-tag.outputs.new_version }}
         previous_version_tag: ${{ needs.get-versions-and-new-tag.outputs.release_tag }}
@@ -116,7 +116,7 @@ jobs:
 
     - name: Update workspace version
       id: update-workspace-version
-      uses: ".github/actions/create-version-update-prs"
+      uses: ./.github/actions/create-version-update-prs
       with:
         version: ${{ needs.get-versions-and-new-tag.outputs.new_version }}
         actor: ${{ secrets.GITHUB_USER_NAME }}
@@ -139,7 +139,7 @@ jobs:
       
     - name: Tag current workspace version
       id: tag-version
-      uses: ".github/actions/add-version-tag"
+      uses: ./.github/actions/add-version-tag
       with:
         version: ${{ needs.get-versions-and-new-tag.outputs.workspace_version }}
         actor: ${{ secrets.GITHUB_USER_NAME }}

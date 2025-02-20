@@ -52,13 +52,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: ".github/actions/create-label"
+    - uses: ./.github/actions/create-label
       with:
         label: ${{ inputs.label }}
         color: ${{ inputs.label_color }}
         description: "This label is used to indicate that a failed workflow has failed"
         force: "false"
-    - uses: ".github/actions/create-failed-workflow-pr"
+    - uses: ./.github/actions/create-failed-workflow-pr
       with:
         actor: ${{ secrets.GITHUB_USER_NAME }}
         actor_email: ${{ secrets.GITHUB_USER_EMAIL }}
