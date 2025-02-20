@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -12,9 +12,4 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//! Module for reading and writing SFNT font files.
-
-pub mod directory;
-pub mod font;
-pub mod header;
-pub mod table;
+//! Tests for WOFF1 font.

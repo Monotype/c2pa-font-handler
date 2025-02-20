@@ -54,6 +54,7 @@ pub(crate) mod magic;
 pub mod sfnt;
 pub mod tag;
 pub(crate) mod utils;
+pub mod woff1;
 
 /// Trait for computing a checksum on SFNT data.
 pub trait FontDataChecksum {
