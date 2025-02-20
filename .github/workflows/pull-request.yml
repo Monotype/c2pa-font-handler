@@ -79,8 +79,6 @@ jobs:
       rust_version: stable 
       os: ubuntu-latest 
       report_coverage: true
-    secrets: 
-      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
 
   docs:
     needs:
