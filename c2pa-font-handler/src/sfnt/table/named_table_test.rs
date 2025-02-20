@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -14,9 +14,64 @@
 
 //! Tests for the generic SFNT table module
 
-use std::io::Cursor;
+use std::{io::Cursor, num::Wrapping};
 
 use super::*;
+
+#[test]
+fn test_named_table_c2pa_read_exact() {
+    let mut data = vec![];
+    data.extend_from_slice(&[0x00, 0x01]); // major_version
+    data.extend_from_slice(&[0x00, 0x04]); // minor_version
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // active manifest uri offset
+    data.extend_from_slice(&[0x00, 0x00]); // active manifest uri length
+    data.extend_from_slice(&[0x00, 0x00]); // reserved
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // content_credential offset
+    data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // content_credential
+    let mut reader = Cursor::new(data);
+    let result =
+        NamedTable::from_reader_exact(&FontTag::C2PA, &mut reader, 0, 20);
+    assert!(result.is_ok());
+    let c2pa = result.unwrap();
+    assert!(matches!(c2pa, NamedTable::C2PA(_)));
+}
+
+#[test]
+fn test_named_table_c2pa_len() {
+    let c2pa = NamedTable::C2PA(TableC2PA::default());
+    assert_eq!(c2pa.len(), 20);
+    assert!(!c2pa.is_empty());
+}
+
+#[test]
+fn test_named_table_c2pa_checksum() {
+    let c2pa = NamedTable::C2PA(TableC2PA::default());
+    let checksum = c2pa.checksum();
+    let mut expected_checksum = Wrapping(0x00000000);
+    // Make 32-bit big-endian checksum
+    // Shift the major version by 16 bits to the left and add the minor version
+    expected_checksum += Wrapping(65536 + 4);
+    assert_eq!(checksum, expected_checksum);
+}
+
+#[test]
+fn test_named_table_c2pa_write() {
+    let c2pa = NamedTable::C2PA(TableC2PA::default());
+    let mut writer = Cursor::new(Vec::new());
+    c2pa.write(&mut writer).unwrap();
+    assert_eq!(
+        writer.into_inner(),
+        vec![
+            0x00, 0x01, // major_version
+            0x00, 0x04, // minor_version
+            0x00, 0x00, 0x00, 0x00, // active manifest uri offset
+            0x00, 0x00, // active manifest uri length
+            0x00, 0x00, // reserved
+            0x00, 0x00, 0x00, 0x00, // content_credential offset
+            0x00, 0x00, 0x00, 0x00, // content_credential
+        ]
+    );
+}
 
 #[test]
 fn test_named_table_dsig_read_exact() {
@@ -41,6 +96,7 @@ fn test_named_table_dsig_len() {
         data: vec![],
     });
     assert_eq!(dsig.len(), 8);
+    assert!(!dsig.is_empty());
 }
 
 #[test]
@@ -136,6 +192,7 @@ fn test_named_table_head_len() {
         glyphDataFormat: 0x023d,
     });
     assert_eq!(head.len(), 54);
+    assert!(!head.is_empty());
 }
 
 #[test]
@@ -253,6 +310,7 @@ fn test_named_table_generic_len() {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     });
     assert_eq!(generic.len(), 8);
+    assert!(!generic.is_empty());
 }
 
 #[test]

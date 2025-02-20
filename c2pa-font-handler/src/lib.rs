@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -46,6 +46,9 @@ use std::{
     num::Wrapping,
 };
 
+use tag::FontTag;
+
+pub mod c2pa;
 pub mod error;
 pub(crate) mod magic;
 pub mod sfnt;
@@ -69,6 +72,16 @@ where
     fn from_reader<T: Read + Seek + ?Sized>(
         reader: &mut T,
     ) -> Result<Self, Self::Error>;
+}
+
+/// Trait for reading SFNT data from a reader, with exact size information.
+pub trait FontDataExactRead
+where
+    Self: Sized,
+{
+    /// The error type for reading the data.
+    type Error;
+
     /// Reads the font data from a reader, starting at a specific offset and
     /// reading a specific length.
     fn from_reader_exact<T: Read + Seek + ?Sized>(
@@ -109,7 +122,7 @@ pub trait FontHeader: FontDataRead + FontDataChecksum + FontDataWrite {
 
 /// A directory in a font.
 pub trait FontDirectory:
-    FontDataRead + FontDataChecksum + FontDataWrite
+    FontDataExactRead + FontDataChecksum + FontDataWrite
 {
     /// The type of entry in the directory.
     type Entry: FontDirectoryEntry;
@@ -118,7 +131,9 @@ pub trait FontDirectory:
     fn from_reader_with_count<T: Read + Seek + ?Sized>(
         reader: &mut T,
         entry_count: usize,
-    ) -> Result<Self, <Self as FontDataRead>::Error>;
+    ) -> Result<Self, <Self as FontDataExactRead>::Error>;
+    /// Returns a reference to the entries in this directory.
+    fn entries(&self) -> &[Self::Entry];
     /// Returns an array which contains the indices of this directory's entries,
     /// arranged in increasing order of `offset` field.
     fn physical_order(&self) -> Vec<&Self::Entry>;
@@ -128,13 +143,25 @@ pub trait FontDirectory:
 pub trait FontDirectoryEntry:
     FontDataRead + FontDataChecksum + FontDataWrite
 {
+    /// Returns the tag of the table.
+    fn tag(&self) -> FontTag;
+    /// Returns the checksum of the table data.
+    fn data_checksum(&self) -> u32;
+    /// Returns the offset of the table.
+    fn offset(&self) -> u32;
+    /// Returns the length of the table.
+    fn length(&self) -> u32;
 }
 
 /// A table in a font.
 #[allow(clippy::len_without_is_empty)] // Doesn't make sense for this trait to have is_empty.
-pub trait FontTable: FontDataRead + FontDataChecksum + FontDataWrite {
+pub trait FontTable: FontDataChecksum + FontDataWrite {
     /// Returns the length of the table.
     fn len(&self) -> u32;
+    /// Returns whether the table is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 /// Represents a font.
@@ -143,6 +170,12 @@ pub trait Font: FontDataRead + MutFontDataWrite {
     type Header: FontHeader;
     /// The directory type for the font.
     type Directory: FontDirectory;
+    /// The table type for the font.
+    type Table: FontTable;
+    /// Checks if the font contains a specific table.
+    fn contains_table(&self, tag: &FontTag) -> bool;
+    /// Returns a specific table from the font.
+    fn table(&self, tag: &FontTag) -> Option<&Self::Table>;
     /// Returns the font header.
     fn header(&self) -> &Self::Header;
     /// Returns the font directory.

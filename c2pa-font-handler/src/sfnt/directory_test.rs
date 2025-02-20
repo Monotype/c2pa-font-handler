@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -29,13 +29,10 @@ fn test_sfnt_directory_entry_read_exact() {
     let result = SfntDirectoryEntry::from_reader_exact(&mut reader, 0, 16);
     assert!(result.is_ok());
     let entry = result.unwrap();
-    assert_eq!(entry.tag, FontTag::new(*b"test"));
-    let checksum = entry.checksum;
-    assert_eq!(checksum, 0x12345678);
-    let offset = entry.offset;
-    assert_eq!(offset, 0x9abcdef0);
-    let length = entry.length;
-    assert_eq!(length, 0x13579bdf);
+    assert_eq!(entry.tag(), FontTag::new(*b"test"));
+    assert_eq!(entry.data_checksum(), 0x12345678);
+    assert_eq!(entry.offset(), 0x9abcdef0);
+    assert_eq!(entry.length(), 0x13579bdf);
 }
 
 #[test]

@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -23,16 +23,20 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::{
     error::FontIoError, tag::FontTag, utils::u32_from_u16_pair,
-    FontDataChecksum, FontDataRead, FontDataWrite, FontTable,
+    FontDataChecksum, FontDataExactRead, FontDataWrite, FontTable,
 };
 
 /// 'DSIG' font table, ignores actual signatures as we intend to only use this
 /// as a stub DSIG table.
 #[allow(non_snake_case)] // As named by Open Font Format / OpenType.
-pub(crate) struct TableDSIG {
+pub struct TableDSIG {
+    /// Version of the DSIG table.
     pub version: u32,
+    /// Number of signatures in the DSIG table.
     pub numSignatures: u16,
+    /// Flags for the DSIG table.
     pub flags: u16,
+    /// Data of the DSIG table.
     #[allow(dead_code)] // We don't actually use this data.
     pub data: Vec<u8>,
 }
@@ -56,24 +60,8 @@ impl TableDSIG {
     }
 }
 
-impl FontDataRead for TableDSIG {
+impl FontDataExactRead for TableDSIG {
     type Error = FontIoError;
-
-    fn from_reader<T: Read + Seek + ?Sized>(
-        reader: &mut T,
-    ) -> Result<Self, Self::Error> {
-        let version = reader.read_u32::<BigEndian>()?;
-        let num_signatures = reader.read_u16::<BigEndian>()?;
-        let flags = reader.read_u16::<BigEndian>()?;
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
-        Ok(TableDSIG {
-            version,
-            numSignatures: num_signatures,
-            flags,
-            data,
-        })
-    }
 
     fn from_reader_exact<T: Read + Seek + ?Sized>(
         reader: &mut T,

@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -17,19 +17,22 @@
 use std::io::{Read, Seek, Write};
 
 use super::{error::FontIoError, FontDataRead, FontDataWrite};
+use crate::FontDataExactRead;
 
 /// Four-character tag which names a font table
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct FontTag {
     /// The four-character tag data
-    data: [u8; 4],
+    pub(crate) data: [u8; 4],
 }
 
 impl FontTag {
+    /// Tag for the 'C2PA' table
+    pub const C2PA: FontTag = FontTag { data: *b"C2PA" };
     /// Tag for the Digital Signature table
-    pub(crate) const DSIG: FontTag = FontTag { data: *b"DSIG" };
+    pub const DSIG: FontTag = FontTag { data: *b"DSIG" };
     /// Tag for the 'head' table
-    pub(crate) const HEAD: FontTag = FontTag { data: *b"head" };
+    pub const HEAD: FontTag = FontTag { data: *b"head" };
     /// Size for a `FontTag`
     pub(crate) const SIZE: usize = 4;
 
@@ -54,6 +57,10 @@ impl FontDataRead for FontTag {
         reader.read_exact(&mut data)?;
         Ok(Self::new(data))
     }
+}
+
+impl FontDataExactRead for FontTag {
+    type Error = FontIoError;
 
     fn from_reader_exact<T: Read + Seek + ?Sized>(
         reader: &mut T,

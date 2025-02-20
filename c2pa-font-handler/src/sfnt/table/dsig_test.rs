@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ fn test_table_dsig_read() {
         0x00, 0x00, // numSignatures
         0x00, 0x00, // flags
     ]);
-    let result = TableDSIG::from_reader(&mut reader);
+    let result = TableDSIG::from_reader_exact(&mut reader, 0, 8);
     assert!(result.is_ok());
     let dsig = result.unwrap();
     assert_eq!(dsig.version, 1);

@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::{
     error::FontIoError, tag::FontTag, utils::u32_from_u16_pair,
-    FontDataChecksum, FontDataRead, FontDataWrite, FontTable,
+    FontDataChecksum, FontDataExactRead, FontDataWrite, FontTable,
 };
 
 /// Spec-mandated magic number for the 'head' table.
@@ -36,24 +36,42 @@ pub(crate) const SFNT_EXPECTED_CHECKSUM: u32 = 0xb1b0afba;
 #[derive(Debug)]
 #[repr(C, packed(1))]
 #[allow(non_snake_case)] // As named by Open Font Format / OpenType.
-pub(crate) struct TableHead {
+pub struct TableHead {
+    /// Major version number of the font.
     pub majorVersion: u16, // Note - Since we only modify checksumAdjustment,
+    /// Minor version number of the font.
     pub minorVersion: u16, // we might just as well define this struct as
+    /// Revision number of the font.
     pub fontRevision: u32, //    version_stuff: u8[8],
+    /// Checksum adjustment.
     pub checksumAdjustment: u32, //    checksumAdjustment: u32,
-    pub magicNumber: u32,  //    rest_of_stuff: u8[42],
+    /// Magic number for the font.
+    pub magicNumber: u32, //    rest_of_stuff: u8[42],
+    /// Flags for the font.
     pub flags: u16,
+    /// Units per em.
     pub unitsPerEm: u16,
+    /// Date created.
     pub created: i64,
+    /// Date modified.
     pub modified: i64,
+    /// Minimum x.
     pub xMin: i16,
+    /// Minimum y.
     pub yMin: i16,
+    /// Maximum x.
     pub xMax: i16,
+    /// Maximum y.
     pub yMax: i16,
+    /// Mac style.
     pub macStyle: u16,
+    /// Lowest PPEM.
     pub lowestRecPPEM: u16,
+    /// Font direction hint.
     pub fontDirectionHint: i16,
+    /// Index to loc format.
     pub indexToLocFormat: i16,
+    /// Glyph data format.
     pub glyphDataFormat: i16,
 }
 
@@ -62,65 +80,8 @@ impl TableHead {
     const SIZE: usize = size_of::<Self>();
 }
 
-impl FontDataRead for TableHead {
+impl FontDataExactRead for TableHead {
     type Error = FontIoError;
-
-    fn from_reader<T: Read + Seek + ?Sized>(
-        reader: &mut T,
-    ) -> Result<Self, Self::Error> {
-        let head = Self {
-            // 0x00
-            majorVersion: reader.read_u16::<BigEndian>()?,
-            minorVersion: reader.read_u16::<BigEndian>()?,
-            // 0x04
-            fontRevision: reader.read_u32::<BigEndian>()?,
-            // 0x08
-            checksumAdjustment: reader.read_u32::<BigEndian>()?,
-            // 0x0c
-            magicNumber: reader.read_u32::<BigEndian>()?,
-            // 0x10
-            flags: reader.read_u16::<BigEndian>()?,
-            unitsPerEm: reader.read_u16::<BigEndian>()?,
-            // 0x14
-            created: reader.read_i64::<BigEndian>()?,
-            // 0x1c
-            modified: reader.read_i64::<BigEndian>()?,
-            // 0x24
-            xMin: reader.read_i16::<BigEndian>()?,
-            yMin: reader.read_i16::<BigEndian>()?,
-            // 0x28
-            xMax: reader.read_i16::<BigEndian>()?,
-            yMax: reader.read_i16::<BigEndian>()?,
-            // 0x2c
-            macStyle: reader.read_u16::<BigEndian>()?,
-            lowestRecPPEM: reader.read_u16::<BigEndian>()?,
-            // 0x30
-            fontDirectionHint: reader.read_i16::<BigEndian>()?,
-            indexToLocFormat: reader.read_i16::<BigEndian>()?,
-            // 0x34
-            glyphDataFormat: reader.read_i16::<BigEndian>()?,
-            // 0x36 - 54 bytes
-            // TBD - Two bytes of padding to get to 56/0x38. Should we
-            // seek/discard two more bytes, just to leave the stream in a
-            // known state? Be nice if we didn't have to.
-            //   1. On the one hand, whoever's invoking us could more-
-            //      efficiently mess around with the offsets and padding.
-            //   B. On the other, for the .write() code, we definitely push
-            //      the "pad *yourself* up to four, impl!" approach
-            //   III. Likewise the .checksum() code (although, because this
-            //        is a simple checksum, the matter is moot; it doesn't
-            //        matter whether we add '0_u16' to the total.
-            //   IIII. (On clocks, IIII is a permissible Roman numeral) But
-            //      what about that "simple" '.len()' call? Should it
-            //      include the two pad bytes?
-            // For now, the surrounding code doesn't care how the read
-            // stream is left, so we don't do anything, since that is simplest.
-        };
-        if head.magicNumber != HEAD_TABLE_MAGIC_NUMBER {
-            return Err(FontIoError::InvalidHeadMagicNumber(head.magicNumber));
-        }
-        Ok(head)
-    }
 
     fn from_reader_exact<T: Read + Seek + ?Sized>(
         reader: &mut T,
@@ -131,7 +92,61 @@ impl FontDataRead for TableHead {
         if size != Self::SIZE {
             Err(FontIoError::LoadTableTruncated(FontTag::HEAD))
         } else {
-            Self::from_reader(reader)
+            let head = Self {
+                // 0x00
+                majorVersion: reader.read_u16::<BigEndian>()?,
+                minorVersion: reader.read_u16::<BigEndian>()?,
+                // 0x04
+                fontRevision: reader.read_u32::<BigEndian>()?,
+                // 0x08
+                checksumAdjustment: reader.read_u32::<BigEndian>()?,
+                // 0x0c
+                magicNumber: reader.read_u32::<BigEndian>()?,
+                // 0x10
+                flags: reader.read_u16::<BigEndian>()?,
+                unitsPerEm: reader.read_u16::<BigEndian>()?,
+                // 0x14
+                created: reader.read_i64::<BigEndian>()?,
+                // 0x1c
+                modified: reader.read_i64::<BigEndian>()?,
+                // 0x24
+                xMin: reader.read_i16::<BigEndian>()?,
+                yMin: reader.read_i16::<BigEndian>()?,
+                // 0x28
+                xMax: reader.read_i16::<BigEndian>()?,
+                yMax: reader.read_i16::<BigEndian>()?,
+                // 0x2c
+                macStyle: reader.read_u16::<BigEndian>()?,
+                lowestRecPPEM: reader.read_u16::<BigEndian>()?,
+                // 0x30
+                fontDirectionHint: reader.read_i16::<BigEndian>()?,
+                indexToLocFormat: reader.read_i16::<BigEndian>()?,
+                // 0x34
+                glyphDataFormat: reader.read_i16::<BigEndian>()?,
+                // 0x36 - 54 bytes
+                // TBD - Two bytes of padding to get to 56/0x38. Should we
+                // seek/discard two more bytes, just to leave the stream in a
+                // known state? Be nice if we didn't have to.
+                //   1. On the one hand, whoever's invoking us could more-
+                //      efficiently mess around with the offsets and padding.
+                //   B. On the other, for the .write() code, we definitely push
+                //      the "pad *yourself* up to four, impl!" approach
+                //   III. Likewise the .checksum() code (although, because this
+                //        is a simple checksum, the matter is moot; it doesn't
+                //        matter whether we add '0_u16' to the total.
+                //   IIII. (On clocks, IIII is a permissible Roman numeral) But
+                //      what about that "simple" '.len()' call? Should it
+                //      include the two pad bytes?
+                // For now, the surrounding code doesn't care how the read
+                // stream is left, so we don't do anything, since that is
+                // simplest.
+            };
+            if head.magicNumber != HEAD_TABLE_MAGIC_NUMBER {
+                return Err(FontIoError::InvalidHeadMagicNumber(
+                    head.magicNumber,
+                ));
+            }
+            Ok(head)
         }
     }
 }

@@ -7,6 +7,7 @@
 
 # Checklist
 <!--  Replace the ' ' with an 'x' for each that applies:  -->
+- [ ] **Merge Commit** will be updated with `(MAJOR)` | `(MINOR)` when appropriate
 - [ ] **PR labeled** appropriately
 - [ ] Changes include a single fix/feature
 - [ ] **Documentation** updated:
