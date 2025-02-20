@@ -14,7 +14,16 @@
 
 //! WOFF1 font format
 
+use crate::FontDirectoryEntry;
+
 pub mod directory;
 pub mod font;
 pub mod header;
 pub mod table;
+
+/// Extension of the [`FontDirectoryEntry`] trait for WOFF1 tables, which adds a
+/// method to check if the table is compressed.
+pub trait WoffDirectoryEntry: FontDirectoryEntry {
+    /// Checks if the table is compressed
+    fn is_compressed(&self) -> bool;
+}
