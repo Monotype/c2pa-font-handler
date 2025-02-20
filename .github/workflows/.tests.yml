@@ -1,0 +1,97 @@
+# @copyright 2025 Monotype Imaging Inc.
+#  
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#  
+#     http://www.apache.org/licenses/LICENSE-2.0
+#  
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+# @file tests.yml
+#
+# @brief A reusable workflow to be called from others for running tests and
+#        reporting coverage.
+#
+on: 
+  workflow_call:
+    inputs:
+      os:
+        description: 'The operating system to build on'
+        required: true 
+        type: string
+      rust_version:
+        description: 'The version of Rust to use'
+        required: true
+        type: string
+      report_coverage:
+        description: 'Whether to report coverage'
+        required: true
+        type: boolean
+
+env:
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+
+jobs:
+
+  cargo_tests:
+    if: ${{ !inputs.report_coverage }}
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ inputs.rust_version }}
+          components: llvm-tools-preview
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v1
+      - name: Run tests
+        run: cargo +${{ inputs.rust_version }} test --all-features --workspace
+
+  cargo_tests_coverage:
+    if: ${{ inputs.report_coverage }}
+    name: Unit tests w/ coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ inputs.rust_version }}
+          components: llvm-tools-preview
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v1
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Generate code coverage
+        run: cargo +${{ inputs.rust_version }} llvm-cov --all-features --workspace --lcov --output-path lcov.info --ignore-filename-regex='(build.rs|^error.rs|mocks|tests|test-utils|test.rs|_test.rs)'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lcov.info
+          path: ./lcov.info
+  report_coverage:
+    if: ${{ inputs.report_coverage }}
+    runs-on: ubuntu-latest
+    needs: cargo_tests_coverage
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: lcov.info
+      - name: Display of downloaded file
+        run: ls -l
+      - name: Report Usage
+        uses: romeovs/lcov-reporter-action@v0.3.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          lcov-file: ./lcov.info
+          filter-changed-files: true
+          delete-old-comments: true
+          title: "Coverage using rust version: ${{ inputs.rust_version }}"

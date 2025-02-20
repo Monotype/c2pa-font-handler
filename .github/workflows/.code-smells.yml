@@ -1,0 +1,55 @@
+# @copyright 2025 Monotype Imaging Inc.
+#  
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#  
+#     http://www.apache.org/licenses/LICENSE-2.0
+#  
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+# @file .code-smells.yml
+#
+# @brief A reusable workflow to be called from others for code smell detection.
+#
+on: 
+  workflow_call:
+
+env:
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+
+jobs:
+
+  cargo_clippy:
+    name: Run 'cargo clippy' looking for code smells
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: clippy
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v1
+      - name: Cargo clippy
+        run: cargo +nightly clippy --all-features --all-targets --no-deps -- -D warnings
+        env:
+          RUST_BACKTRACE: "1"
+        
+  cargo_fmt:
+    name: Run 'cargo fmt' looking for formatting issues
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: rustfmt
+      - name: Check `cargo fmt`
+        run: cargo +nightly fmt --all -- --check
