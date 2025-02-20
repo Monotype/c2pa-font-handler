@@ -20,9 +20,11 @@ use std::{
     num::Wrapping,
 };
 
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+
 use crate::{
-    error::FontIoError, FontDataChecksum, FontDataExactRead, FontDataRead,
-    FontDataWrite, FontHeader,
+    error::FontIoError, magic::Magic, FontDataChecksum, FontDataExactRead,
+    FontDataRead, FontDataWrite, FontHeader,
 };
 
 /// All the serialization structures so far have been defined using native
@@ -30,7 +32,7 @@ use crate::{
 /// layer of "font" types (FWORD, FIXED, etc.)?
 ///
 /// WOFF1 header
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone)]
 #[repr(C, packed(1))]
 #[allow(non_snake_case)]
 pub struct Woff1Header {
@@ -63,6 +65,26 @@ pub struct Woff1Header {
     pub privLength: u32,
 }
 
+impl Default for Woff1Header {
+    fn default() -> Self {
+        Self {
+            signature: Magic::Woff as u32,
+            flavor: 0,
+            length: 0,
+            numTables: 0,
+            reserved: 0,
+            totalSfntSize: 0,
+            majorVersion: 0,
+            minorVersion: 0,
+            metaOffset: 0,
+            metaLength: 0,
+            metaOrigLength: 0,
+            privOffset: 0,
+            privLength: 0,
+        }
+    }
+}
+
 impl Woff1Header {
     /// The size of an WOFF1 header.
     pub(crate) const SIZE: usize = size_of::<Self>();
@@ -72,18 +94,23 @@ impl FontDataRead for Woff1Header {
     type Error = FontIoError;
 
     fn from_reader<T: Read + Seek + ?Sized>(
-        _reader: &mut T,
+        reader: &mut T,
     ) -> Result<Self, Self::Error> {
-        todo!()
-        /*
         Ok(Self {
-            sfntVersion: Magic::try_from(reader.read_u32::<BigEndian>()?)?,
+            signature: reader.read_u32::<BigEndian>()?,
+            flavor: reader.read_u32::<BigEndian>()?,
+            length: reader.read_u32::<BigEndian>()?,
             numTables: reader.read_u16::<BigEndian>()?,
-            searchRange: reader.read_u16::<BigEndian>()?,
-            entrySelector: reader.read_u16::<BigEndian>()?,
-            rangeShift: reader.read_u16::<BigEndian>()?,
+            reserved: reader.read_u16::<BigEndian>()?,
+            totalSfntSize: reader.read_u32::<BigEndian>()?,
+            majorVersion: reader.read_u16::<BigEndian>()?,
+            minorVersion: reader.read_u16::<BigEndian>()?,
+            metaOffset: reader.read_u32::<BigEndian>()?,
+            metaLength: reader.read_u32::<BigEndian>()?,
+            metaOrigLength: reader.read_u32::<BigEndian>()?,
+            privOffset: reader.read_u32::<BigEndian>()?,
+            privLength: reader.read_u32::<BigEndian>()?,
         })
-        */
     }
 }
 
@@ -108,17 +135,22 @@ impl FontDataWrite for Woff1Header {
 
     fn write<TDest: Write + ?Sized>(
         &self,
-        _dest: &mut TDest,
+        dest: &mut TDest,
     ) -> Result<(), Self::Error> {
-        todo!()
-        /*
-        dest.write_u32::<BigEndian>(self.sfntVersion as u32)?;
+        dest.write_u32::<BigEndian>(self.signature)?;
+        dest.write_u32::<BigEndian>(self.flavor)?;
+        dest.write_u32::<BigEndian>(self.length)?;
         dest.write_u16::<BigEndian>(self.numTables)?;
-        dest.write_u16::<BigEndian>(self.searchRange)?;
-        dest.write_u16::<BigEndian>(self.entrySelector)?;
-        dest.write_u16::<BigEndian>(self.rangeShift)?;
+        dest.write_u16::<BigEndian>(self.reserved)?;
+        dest.write_u32::<BigEndian>(self.totalSfntSize)?;
+        dest.write_u16::<BigEndian>(self.majorVersion)?;
+        dest.write_u16::<BigEndian>(self.minorVersion)?;
+        dest.write_u32::<BigEndian>(self.metaOffset)?;
+        dest.write_u32::<BigEndian>(self.metaLength)?;
+        dest.write_u32::<BigEndian>(self.metaOrigLength)?;
+        dest.write_u32::<BigEndian>(self.privOffset)?;
+        dest.write_u32::<BigEndian>(self.privLength)?;
         Ok(())
-        */
     }
 }
 

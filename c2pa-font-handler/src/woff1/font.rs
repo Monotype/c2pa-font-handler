@@ -20,22 +20,42 @@ use std::{
 };
 
 use super::{
-    directory::Woff1Directory, header::Woff1Header, table::NamedTable,
+    directory::Woff1Directory,
+    header::Woff1Header,
+    table::{generic::TableGeneric, NamedTable},
 };
 use crate::{
     error::FontIoError, tag::FontTag, Font, FontDataExactRead, FontDataRead,
-    FontDirectory, FontHeader, MutFontDataWrite,
+    FontDataWrite, FontDirectory, FontHeader, MutFontDataWrite,
+};
+
+/// WOFF 1.0 WOFF header chunk name
+const WOFF1_HEADER_CHUNK_NAME: FontTag = FontTag {
+    data: *b"\x00\x00\x00w",
 };
 
 /// Pseudo-tag for the table directory
-const _WOFF1_DIRECTORY_CHUNK_NAME: FontTag = FontTag { data: *b" DIR" };
+const WOFF1_DIRECTORY_CHUNK_NAME: FontTag = FontTag {
+    data: *b"\x00\x00\x01D",
+};
 
+/// WOFF 1.0 / 2.0 XML metadata
+const WOFF_METADATA_CHUNK_NAME: FontTag = FontTag {
+    data: *b"\x7F\x7F\x7FM",
+};
+
+/// WOFF 1.0 / 2.0 trailing private data
+const WOFF_PRIVATE_CHUNK_NAME: FontTag = FontTag {
+    data: *b"\x7F\x7F\x7FP",
+};
 /// Implementation of an woff1 font.
 #[derive(Default)]
 pub struct Woff1Font {
     header: Woff1Header,
     directory: Woff1Directory,
     tables: BTreeMap<FontTag, NamedTable>,
+    meta: Option<TableGeneric>,
+    private_data: Option<TableGeneric>,
 }
 
 impl FontDataRead for Woff1Font {
@@ -45,6 +65,8 @@ impl FontDataRead for Woff1Font {
         reader: &mut T,
     ) -> Result<Self, Self::Error> {
         let header = Woff1Header::from_reader(reader)?;
+        let meta_length = header.metaLength;
+        let private_length = header.privLength;
         let directory = Woff1Directory::from_reader_with_count(
             reader,
             header.num_tables() as usize,
@@ -59,10 +81,30 @@ impl FontDataRead for Woff1Font {
             )?;
             tables.insert(entry.tag, table);
         }
+        let meta = if meta_length > 0 {
+            Some(TableGeneric::from_reader_exact(
+                reader,
+                header.metaOffset as u64,
+                meta_length as usize,
+            )?)
+        } else {
+            None
+        };
+        let private_data = if private_length > 0 {
+            Some(TableGeneric::from_reader_exact(
+                reader,
+                header.privOffset as u64,
+                private_length as usize,
+            )?)
+        } else {
+            None
+        };
         Ok(Self {
             header,
             directory,
             tables,
+            meta,
+            private_data,
         })
     }
 }
@@ -85,9 +127,26 @@ impl MutFontDataWrite for Woff1Font {
 
     fn write<TDest: std::io::Write + ?Sized>(
         &mut self,
-        _dest: &mut TDest,
+        dest: &mut TDest,
     ) -> Result<(), Self::Error> {
-        todo!()
+        // Write the header
+        self.header.write(dest)?;
+        // Write the directory
+        self.directory.write(dest)?;
+        // Write out all of the table entries
+        for entry in self.directory.entries() {
+            let table = self.tables.get(&entry.tag).unwrap();
+            table.write(dest)?;
+        }
+        // If we have metadata, write it
+        if let Some(meta) = &self.meta {
+            meta.write(dest)?;
+        }
+        // If we have private data, write it
+        if let Some(private_data) = &self.private_data {
+            private_data.write(dest)?;
+        }
+        Ok(())
     }
 }
 

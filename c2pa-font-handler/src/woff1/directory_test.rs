@@ -22,17 +22,18 @@ use super::*;
 fn test_woff1_directory_entry_read_exact() {
     let mut reader = Cursor::new(vec![
         0x74, 0x65, 0x73, 0x74, // tag
-        0x12, 0x34, 0x56, 0x78, // checksum
         0x9a, 0xbc, 0xde, 0xf0, // offset
-        0x13, 0x57, 0x9b, 0xdf, // length
+        0x99, 0x88, 0x77, 0x66, // compLength
+        0x12, 0x34, 0x56, 0x78, // origLength
+        0x13, 0x57, 0x9b, 0xdf, // origChecksum
     ]);
-    let result = Woff1DirectoryEntry::from_reader_exact(&mut reader, 0, 16);
+    let result = Woff1DirectoryEntry::from_reader_exact(&mut reader, 0, 20);
     assert!(result.is_ok());
     let entry = result.unwrap();
     assert_eq!(entry.tag(), FontTag::new(*b"test"));
-    assert_eq!(entry.data_checksum(), 0x12345678);
     assert_eq!(entry.offset(), 0x9abcdef0);
-    assert_eq!(entry.length(), 0x13579bdf);
+    assert_eq!(entry.length(), 0x99887766);
+    assert_eq!(entry.data_checksum(), 0x13579bdf);
 }
 
 #[test]
