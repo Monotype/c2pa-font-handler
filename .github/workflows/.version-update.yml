@@ -1,0 +1,147 @@
+# @copyright 2025 Monotype Imaging Inc.
+#  
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#  
+#     http://www.apache.org/licenses/LICENSE-2.0
+#  
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+# @file .version-update.yml
+#
+# @brief A reusable workflow to be called from others which does one of two
+# things: either updates the version of the workspace if it needs updating
+# (creating two PRs, to main/dev, to handle the changes) or adds a new tag to
+# reflect the current workspace version.
+
+on: 
+  workflow_call:
+    secrets:
+      GITHUB_USER_NAME:
+        description: "Github user who we'll use to create PRs and tags; must have write access"
+        required: true
+      GITHUB_USER_EMAIL:
+        description: "Email for github user who we'll use to create PRs and tags; must have write access"
+        required: true
+      USER_TOKEN:
+        description: 'Github user token, used to fetch private dependencies'
+        required: true
+
+jobs:
+  # Determine the following:
+  # - The current version of the workspace
+  # - The latest version from release tags
+  # - The next version tag
+  get-versions-and-new-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      release_version: ${{ steps.get-version-from-latest-tag.outputs.release_version }}
+      release_tag: ${{ steps.get-latest-tag.outputs.tag }}
+      workspace_version: ${{ steps.get-workspace-version.outputs.metadata }}
+      new_version: ${{ steps.get-next-version.outputs.version }}
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        # Need fetch depth of 0 to get all tags (required to predict next
+        # version)
+        fetch-depth: 0
+
+    # Get the current crate version
+    # Use cargo-get to get the version
+    # NOTE: This requires that a workspace be defined for the repo
+    # TODO: How do we want to handle errors if there's no workspace?
+    # Outputs: metadata
+    - name: Get current workspace version
+      id: get-workspace-version
+      uses: nicolaiunrein/cargo-get@v1.1.1
+      with:
+        subcommand: workspace.package.version
+
+    # Determine the version of the last release that we did.
+    # Output: tag
+    - name: Get latest release tag
+      id: get-latest-tag
+      uses: WyriHaximus/github-action-get-previous-tag@v1
+  
+    # Remove prefix from current release tag.
+    # Output: release_version
+    - name: Remove prefix from current release tag
+      id: get-version-from-latest-tag
+      run: |
+        VERSION=${{ steps.get-latest-tag.outputs.tag }}
+        echo "release_version=${VERSION#v}" >> "$GITHUB_OUTPUT"
+
+    # Determine the next version tag we'd use for a release.  This will look
+    # through all commits since the last release tag and determine what type
+    # of release we should do based on the commit messages.  Specifically, this
+    # means that squashed merges to dev should include "(MINOR)" in the commit
+    # if the next release needs to be minor, or "(MAJOR)" if the next release
+    # needs to be major (with MAJOR trumping MINOR).  Otherwise, the next
+    # release will simply be a patch release.
+    # Outputs: version, version_tag
+    - name: Determine new version
+      id: get-next-version
+      uses: paulhatch/semantic-version@v5.2.1
+      with:
+        tag_prefix: "v"
+        version_format: "${major}.${minor}.${patch}"
+        major_pattern: "(MAJOR)"
+        minor_pattern: "(MINOR)"
+
+  # If the workspace version is the same as the latest tag, we need to update
+  # the workspace version.
+  update-workspace-version:
+    runs-on: ubuntu-latest
+    needs: get-versions-and-new-tag
+    if: ${{ needs.get-versions-and-new-tag.outputs.workspace_version == needs.get-versions-and-new-tag.outputs.release_version }}
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        # Need fetch depth of 0 to get all tags (required in order to fill the
+        # changelog).
+        fetch-depth: 0
+
+    - name: Update the changelog
+      id: update-changelog
+      uses: ".github/actions/update-changelog"
+      with:
+        version: ${{ needs.get-versions-and-new-tag.outputs.new_version }}
+        previous_version_tag: ${{ needs.get-versions-and-new-tag.outputs.release_tag }}
+        base_repo_uri: "${{ github.server_url }}/${{ github.repository }}"
+
+    - name: Update workspace version
+      id: update-workspace-version
+      uses: ".github/actions/create-version-update-prs"
+      with:
+        version: ${{ needs.get-versions-and-new-tag.outputs.new_version }}
+        actor: ${{ secrets.GITHUB_USER_NAME }}
+        actor_email: ${{ secrets.GITHUB_USER_EMAIL }}
+        pr_assignee: ${{ github.actor }}
+
+  # If the workspace version is different from the latest tag, we need to
+  # create a new version tag to reflect the workspace version.
+  create-tag-for-workspace-version:
+    runs-on: ubuntu-latest
+    needs: get-versions-and-new-tag
+    if: ${{ needs.get-versions-and-new-tag.outputs.workspace_version != needs.get-versions-and-new-tag.outputs.release_version }}
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        # Need fetch-depth of 0 to get all tags; necessary to avoid creating
+        # a tag which already exist (if the version file changed, but the
+        # version within did not).
+        fetch-depth: 0
+      
+    - name: Tag current workspace version
+      id: tag-version
+      uses: ".github/actions/add-version-tag"
+      with:
+        version: ${{ needs.get-versions-and-new-tag.outputs.workspace_version }}
+        actor: ${{ secrets.GITHUB_USER_NAME }}
+        actor_email: ${{ secrets.GITHUB_USER_EMAIL }}
+      

@@ -36,7 +36,7 @@ jobs:
   # copyright commit has been made - if this is true, we should avoid running
   # any other jobs; as they will be run again with the new copyright commit.
   copyright-update:
-    uses: Monotype/rust-actions/.github/workflows/.copyright-update.yml@main
+    uses: .github/workflows/.copyright-update.yml
     secrets: 
       GITHUB_USER_NAME: ${{ secrets.PITEST_USER }}
       GITHUB_USER_EMAIL: ${{ secrets.PITEST_EMAIL }}
@@ -46,12 +46,9 @@ jobs:
     needs:
       copyright-update
     if: needs.copyright-update.outputs.copyright_commit_added == 'false'
-    uses: Monotype/rust-actions/.github/workflows/.audits.yml@main
+    uses: .github/workflows/.audits.yml
     with:
       check_unused_deps: true
-    secrets: 
-      GITHUB_USER: ${{ secrets.PITEST_USER }}
-      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
 
   builds:
     needs:
@@ -62,26 +59,22 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         # PRs should check the default toolchain, stable, and nightly
         rust_version: [1.75.0, stable, nightly]
-    uses: Monotype/rust-actions/.github/workflows/.builds.yml@main
+    uses: .github/workflows/.builds.yml
     with:
       os: ${{ matrix.os }}
       rust_version: ${{ matrix.rust_version }}
-    secrets: 
-      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
 
   code-smells:
     needs:
       copyright-update
     if: needs.copyright-update.outputs.copyright_commit_added == 'false'
-    uses: Monotype/rust-actions/.github/workflows/.code-smells.yml@main
-    secrets:
-      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
+    uses: .github/workflows/.code-smells.yml
 
   coverage:
     needs:
       copyright-update
     if: needs.copyright-update.outputs.copyright_commit_added == 'false'
-    uses: Monotype/rust-actions/.github/workflows/.tests.yml@main
+    uses: .github/workflows/.tests.yml
     with:
       rust_version: stable 
       os: ubuntu-latest 
@@ -93,9 +86,7 @@ jobs:
     needs:
       copyright-update
     if: needs.copyright-update.outputs.copyright_commit_added == 'false'
-    uses: Monotype/rust-actions/.github/workflows/.docs.yml@main
-    secrets:
-      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
+    uses: .github/workflows/.docs.yml
 
   # We only check spelling on Pull Requests, as once it is merged in the
   # spellings shouldn't change, right??
@@ -123,10 +114,8 @@ jobs:
     needs:
       copyright-update
     if: needs.copyright-update.outputs.copyright_commit_added == 'false'
-    uses: Monotype/rust-actions/.github/workflows/.tests.yml@main
+    uses: .github/workflows/.tests.yml
     with:
       rust_version: nightly
       os: ubuntu-latest
       report_coverage: false 
-    secrets: 
-      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}

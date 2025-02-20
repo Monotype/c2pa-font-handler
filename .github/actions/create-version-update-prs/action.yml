@@ -1,0 +1,100 @@
+#  Copyright 2025 Monotype Imaging Inc.
+#  
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#  
+#     http://www.apache.org/licenses/LICENSE-2.0
+#  
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+name: 'Create Version Update PRs'
+description: "Updates the version file and creates PRs for modifying it"
+author: 'Monotype'
+inputs:
+  version:
+    description: 'Semver version string'
+    required: true
+  primary_branch:
+    description: 'Name of the primary branch'
+    default: main
+  development_branch:
+    description: 'Name of the development branch'
+    default: dev
+  actor:
+    description: 'Github id of actor to utilize for version change commit'
+    required: true
+  actor_email:
+    description: 'Github email of actor to utilize for version change commit'
+    required: true
+  pr_assignee:
+    description: 'Github id of assignee for new PRs'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    # Install cargo-edit so we can update workspace version
+    - name: Install cargo-edit
+      uses: baptiste0928/cargo-install@v3
+      with:
+        crate: cargo-edit
+
+    # Update workspace version using cargo-edit
+    - name: Update workspace version
+      id: update-workspace-version
+      shell: bash
+      run: cargo set-version ${{ inputs.version }} --workspace
+
+    # Update the cargo.lock file to reflect our newer version; required as
+    # cargo set-version won't actually update cargo.lock.  This requires access
+    # to private dependencies; as such the caller must have already modified
+    # github references to include github tokens. 
+    - name: Update workspace cargo.lock
+      id: update-workspace-version-lock
+      shell: bash
+      run: cargo update -w
+
+    # List files changed
+    - name: List files changed
+      shell: bash
+      run: git status
+    
+    # Create branch with modified version.
+    - name: Create version change branch
+      id: create-version-branch
+      uses: EndBug/add-and-commit@v9
+      with:
+        message: "(IGNORE) Update workspace version to ${{ inputs.version }}"
+        new_branch: version-update/${{ inputs.version }}/${{ github.sha }}
+        author_name: ${{ inputs.actor }}
+        author_email: ${{ inputs.actor_email }}
+
+    # If cargo.toml changed, create PRs for it.
+    - name: Create pull requests
+      if: ${{ steps.create-version-branch.outputs.pushed == 'true'}}
+      shell: bash
+      run: |
+        chmod +x ${{ github.action_path }}/createPrs.sh
+        ${{ github.action_path }}/createPrs.sh
+        exit $? 
+      env:
+        GH_TOKEN: ${{ github.token }}
+        VERSION: ${{ inputs.version }}
+        WORKFLOW: ${{ github.workflow }}
+        TRIGGER_SHA: ${{ github.sha }}
+        PRIMARY_BRANCH: ${{ inputs.primary_branch }}
+        DEVELOPMENT_BRANCH: ${{ inputs.development_branch }}
+        ASSIGNEE: ${{ inputs.pr_assignee }}
+    
+    # If cargo.toml was not changed, the previous tag may not have been made.
+    # Throw an error with the information.
+    - name: Error - cargo.toml unchanged
+      if: ${{ steps.create-version-branch.outputs.pushed == 'false'}}
+      shell: bash
+      run: |
+        echo "::error::cargo.toml unchanged, likely tag/version are out of sync"
+        exit 1

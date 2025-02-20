@@ -24,12 +24,9 @@ on:
 jobs:
 
   audits:
-    uses: Monotype/rust-actions/.github/workflows/.audits.yml@main
+    uses: .github/workflows/.audits.yml
     with:
       check_unused_deps: false
-    secrets: 
-      GITHUB_USER: ${{ secrets.PITEST_USER }}
-      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
 
   builds:
     strategy:
@@ -37,33 +34,27 @@ jobs:
         os: [ubuntu-latest]
         # Nightly checks for the latest stable and nightly toolchains
         rust_version: [stable, nightly]
-    uses: Monotype/rust-actions/.github/workflows/.builds.yml@main
+    uses: .github/workflows/.builds.yml
     with:
       os: ${{ matrix.os }}
       rust_version: ${{ matrix.rust_version }}
-    secrets: 
-      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
 
   code-smells:
-    uses: Monotype/rust-actions/.github/workflows/.code-smells.yml@main
-    secrets:
-      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
+    uses: .github/workflows/.code-smells.yml
   
   tests:
     strategy:
       matrix:
         os: [ubuntu-latest]
         rust_version: [stable, nightly]
-    uses: Monotype/rust-actions/.github/workflows/.tests.yml@main
+    uses: .github/workflows/.tests.yml
     with:
       rust_version: ${{ matrix.rust_version }}
       os: ${{ matrix.os }}
       report_coverage: false
-    secrets: 
-      USER_TOKEN: ${{ secrets.PITEST_TOKEN }}
   
   attention:
-    uses: Monotype/rust-actions/.github/workflows/.create-failed-workflow-pr.yml@main
+    uses: .github/workflows/.create-failed-workflow-pr.yml
     if: ${{ failure() }}
     needs: [audits, builds, code-smells, tests]
     with:
