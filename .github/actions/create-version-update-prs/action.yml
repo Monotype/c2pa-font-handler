@@ -37,6 +37,12 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    # Override the local toolset to the latest stable version, as the cargo-edit uses 
+    # a lock file that is `version 4`.
+    - name: Set to latest toolset
+      shell: bash
+      run: rustup override set stable
+
     # Install cargo-edit so we can update workspace version
     - name: Install cargo-edit
       uses: baptiste0928/cargo-install@v3
