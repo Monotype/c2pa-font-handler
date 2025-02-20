@@ -27,7 +27,7 @@ use crate::{
     FontDataRead, FontDataWrite, FontDirectory, FontDirectoryEntry,
 };
 
-/// SFNT Table Directory Entry, from the OpenType spec.
+/// WOFF1 Table Directory Entry, from the OpenType spec.
 #[derive(Copy, Clone, Debug)]
 #[repr(C, packed(1))] // As defined by the OpenType spec.
 #[allow(non_snake_case)] // As defined by the OpenType spec.
@@ -40,7 +40,7 @@ pub struct Woff1DirectoryEntry {
 }
 
 impl Woff1DirectoryEntry {
-    /// The size of an SFNT directory entry.
+    /// The size of an WOFF1 directory entry.
     pub const SIZE: usize = size_of::<Self>();
 }
 
@@ -123,7 +123,7 @@ impl FontDirectoryEntry for Woff1DirectoryEntry {
     }
 }
 
-/// SFNT Directory is just an array of entries.
+/// WOFF1 Directory is just an array of entries.
 ///
 /// Undoubtedly there exists a more-oxidized way of just using Vec directly for
 /// this... but maybe we don't want to? Note the choice of Vec over BTreeMap

@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//! Tests for the generic SFNT table module
+//! Tests for the generic WOFF table module
 
 use std::{io::Cursor, num::Wrapping};
 
@@ -25,7 +25,7 @@ fn test_table_generic_read_exact() {
         0x00, 0x00, // numSignatures
         0x00, 0x00, // flags
     ]);
-    let result = TableGeneric::from_reader_exact(&mut reader, 0, 8);
+    let result = Table::from_reader_exact(&mut reader, 0, 8);
     assert!(result.is_ok());
     let generic = result.unwrap();
     assert_eq!(
@@ -37,7 +37,7 @@ fn test_table_generic_read_exact() {
 #[test]
 fn test_reader_exact_with_invalid_sized_buffer() {
     let mut reader = Cursor::new(vec![0; 7]);
-    let result = TableGeneric::from_reader_exact(&mut reader, 0, 8);
+    let result = Table::from_reader_exact(&mut reader, 0, 8);
     assert!(result.is_err());
     let err = result.err().unwrap();
     assert!(matches!(err, FontIoError::IoError(_)));
@@ -46,7 +46,7 @@ fn test_reader_exact_with_invalid_sized_buffer() {
 
 #[test]
 fn test_table_generic_len() {
-    let generic = TableGeneric {
+    let generic = Table {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     };
     assert_eq!(generic.len(), 8);
@@ -54,7 +54,7 @@ fn test_table_generic_len() {
 
 #[test]
 fn test_table_generic_checksum() {
-    let generic = TableGeneric {
+    let generic = Table {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     };
     assert_eq!(generic.checksum(), Wrapping(0x00000001));
@@ -62,7 +62,7 @@ fn test_table_generic_checksum() {
 
 #[test]
 fn test_table_generic_write() {
-    let generic = TableGeneric {
+    let generic = Table {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     };
     let mut buffer = Vec::new();
@@ -73,7 +73,7 @@ fn test_table_generic_write() {
 #[test]
 fn test_table_generic_write_with_4_byte_alignment() {
     // Create table with 5 bytes, which should be padded to 8 bytes
-    let generic = TableGeneric {
+    let generic = Table {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00],
     };
     let mut buffer = Vec::new();
@@ -82,7 +82,7 @@ fn test_table_generic_write_with_4_byte_alignment() {
 }
 #[test]
 fn test_table_generic_write_with_bad_buffer_size() {
-    let generic = TableGeneric {
+    let generic = Table {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     };
     let mut buffer = [0; 7];
@@ -95,7 +95,7 @@ fn test_table_generic_write_with_bad_buffer_size() {
 
 #[test]
 fn test_table_generic_write_with_bad_buffer_size_and_padding() {
-    let generic = TableGeneric {
+    let generic = Table {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00],
     };
     let mut buffer = [0; 4];

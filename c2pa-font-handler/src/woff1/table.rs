@@ -12,10 +12,71 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//! WOFF1 font file table.
+//! WOFF1 font file table. These tables are really SFNT tables that are either
+//! stored as is or compressed.
 
-pub(crate) mod generic;
-pub(crate) mod named_table;
+use std::io::{Read, Seek, SeekFrom, Write};
 
-// Export named table
-pub use named_table::NamedTable;
+use crate::{
+    error::FontIoError, utils, FontDataChecksum, FontDataExactRead,
+    FontDataWrite, FontTable,
+};
+
+/// Generic font table with unknown contents.
+pub struct Table {
+    /// The raw data of the table
+    pub data: Vec<u8>,
+}
+
+impl FontDataExactRead for Table {
+    type Error = FontIoError;
+
+    fn from_reader_exact<T: Read + Seek + ?Sized>(
+        reader: &mut T,
+        offset: u64,
+        size: usize,
+    ) -> Result<Self, Self::Error> {
+        reader.seek(SeekFrom::Start(offset))?;
+        let mut data = vec![0; size];
+        reader.read_exact(&mut data)?;
+
+        Ok(Table { data })
+    }
+}
+
+impl FontDataWrite for Table {
+    type Error = FontIoError;
+
+    fn write<TDest: Write + ?Sized>(
+        &self,
+        dest: &mut TDest,
+    ) -> Result<(), Self::Error> {
+        // write all of the data to the destination
+        dest.write_all(&self.data[..])
+            .map_err(FontIoError::FailedToWriteTableData)?;
+        // And determine the padding needed to be byte aligned
+        let limit = self.data.len() % 4;
+        if limit > 0 {
+            let padding = vec![0; 4 - limit];
+            dest.write_all(&padding)
+                .map_err(FontIoError::FailedToWriteTableData)?;
+        }
+        Ok(())
+    }
+}
+
+impl FontDataChecksum for Table {
+    fn checksum(&self) -> std::num::Wrapping<u32> {
+        utils::checksum(&self.data)
+    }
+}
+
+impl FontTable for Table {
+    fn len(&self) -> u32 {
+        self.data.len() as u32
+    }
+}
+
+#[cfg(test)]
+#[path = "table_test.rs"]
+mod tests;

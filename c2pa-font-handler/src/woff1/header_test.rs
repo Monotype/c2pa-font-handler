@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//! Tests for woff1 header module
+//! Tests for WOFF1 header module
 
 #[test]
 fn test_woff1_header_default() {}

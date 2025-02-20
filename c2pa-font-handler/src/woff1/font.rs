@@ -19,11 +19,7 @@ use std::{
     io::{Read, Seek},
 };
 
-use super::{
-    directory::Woff1Directory,
-    header::Woff1Header,
-    table::{generic::TableGeneric, NamedTable},
-};
+use super::{directory::Woff1Directory, header::Woff1Header, table::Table};
 use crate::{
     error::FontIoError, tag::FontTag, Font, FontDataExactRead, FontDataRead,
     FontDataWrite, FontDirectory, FontHeader, MutFontDataWrite,
@@ -53,9 +49,9 @@ const WOFF_PRIVATE_CHUNK_NAME: FontTag = FontTag {
 pub struct Woff1Font {
     header: Woff1Header,
     directory: Woff1Directory,
-    tables: BTreeMap<FontTag, NamedTable>,
-    meta: Option<TableGeneric>,
-    private_data: Option<TableGeneric>,
+    tables: BTreeMap<FontTag, Table>,
+    meta: Option<Table>,
+    private_data: Option<Table>,
 }
 
 impl FontDataRead for Woff1Font {
@@ -73,8 +69,7 @@ impl FontDataRead for Woff1Font {
         )?;
         let mut tables = BTreeMap::new();
         for entry in directory.entries() {
-            let table = NamedTable::from_reader_exact(
-                &entry.tag,
+            let table = Table::from_reader_exact(
                 reader,
                 entry.offset as u64,
                 entry.compLength as usize,
@@ -82,7 +77,7 @@ impl FontDataRead for Woff1Font {
             tables.insert(entry.tag, table);
         }
         let meta = if meta_length > 0 {
-            Some(TableGeneric::from_reader_exact(
+            Some(Table::from_reader_exact(
                 reader,
                 header.metaOffset as u64,
                 meta_length as usize,
@@ -91,7 +86,7 @@ impl FontDataRead for Woff1Font {
             None
         };
         let private_data = if private_length > 0 {
-            Some(TableGeneric::from_reader_exact(
+            Some(Table::from_reader_exact(
                 reader,
                 header.privOffset as u64,
                 private_length as usize,
@@ -153,7 +148,7 @@ impl MutFontDataWrite for Woff1Font {
 impl Font for Woff1Font {
     type Directory = Woff1Directory;
     type Header = Woff1Header;
-    type Table = NamedTable;
+    type Table = Table;
 
     fn header(&self) -> &Self::Header {
         &self.header
