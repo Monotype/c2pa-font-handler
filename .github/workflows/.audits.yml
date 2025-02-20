@@ -1,0 +1,68 @@
+# @copyright 2025 Monotype Imaging Inc.
+#  
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#  
+#     http://www.apache.org/licenses/LICENSE-2.0
+#  
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+# @file audits.yml
+#
+# @brief A reusable workflow to be called from others for performing
+#        various audits on the codebase.
+#
+on: 
+  workflow_call:
+    inputs:
+      check_unused_deps:
+        description: 'Check for any unused dependencies'
+        required: true 
+        type: boolean
+
+env:
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+
+jobs:
+
+  # Run the license and vulnerability audit a daily basis
+  cargo_deny:
+    name: License and vulnerability audit
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        checks:
+          - advisories
+          - bans licenses sources
+    steps:
+      - uses: actions/checkout@v3
+      - name: Audit crate dependencies
+        uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          command: check ${{ matrix.checks }}
+
+  # Check for any unused dependencies
+  cargo_unused_deps:
+    if: ${{ inputs.check_unused_deps }}
+    name: Check for any unused dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+      - name: Override the toolchain
+        run: rustup override set nightly
+      - name: Run cargo-udeps
+        uses: aig787/cargo-udeps-action@v1
+        with:
+          version: latest
+          args: --all-targets --all-features
