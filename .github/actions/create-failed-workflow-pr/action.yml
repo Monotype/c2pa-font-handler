@@ -1,0 +1,56 @@
+#  Copyright 2025 Monotype Imaging Inc.
+#  
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#  
+#     http://www.apache.org/licenses/LICENSE-2.0
+#  
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+name: 'Create Nightly Fix PRs'
+description: "Intended to draw attention to nightly failures and create PRs to fix them"
+author: 'Monotype'
+inputs:
+  destination_branch:
+    description: 'Branch to create PR against'
+    required: false
+    default: dev
+  label:
+    description: 'Name of the label to create'
+    required: false
+    default: workflow-failure
+  pr_assignee:
+    description: 'Github id of assignee for new PRs'
+    required: true
+  actor:
+    description: 'Github id of actor to tag with'
+    required: true
+  actor_email:
+    description: 'Email of actor to tag with'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Create pull requests
+      shell: bash
+      run: |
+        set -e
+        chmod +x ${{ github.action_path }}/createPr.sh
+        ${{ github.action_path }}/createPr.sh
+        exit $? 
+      env:
+        GH_TOKEN: ${{ github.token }}
+        WORKFLOW: ${{ github.workflow }}
+        TRIGGER_SHA: ${{ github.sha }}
+        DESTINATION_BRANCH: ${{ inputs.destination_branch }}
+        ASSIGNEE: ${{ inputs.pr_assignee }}
+        LABEL: ${{ inputs.label }}
+        GITHUB_ACTOR: ${{ inputs.actor }}
+        ACTOR_EMAIL: ${{ inputs.actor_email }}
+        REPO: ${{ github.repository }}
+        GITHUB_RUN_ID: ${{ github.run_id }}

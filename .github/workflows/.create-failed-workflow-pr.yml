@@ -1,0 +1,67 @@
+# @copyright 2025 Monotype Imaging Inc.
+#  
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#  
+#     http://www.apache.org/licenses/LICENSE-2.0
+#  
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+# @file .create-nightly-prs.yml
+#
+# @brief A reusable workflow to be called from others which creates a PR
+# to update the workspace version if a workflow fails (e.g., nightly).
+
+on: 
+  workflow_call:
+    inputs:
+      label:
+        description: "Name of the label to create"
+        required: false
+        type: string
+        default: "workflow-failure"
+      label_color:
+        description: "Color of the label to create"
+        required: false
+        type: string
+        default: "#5fb9d1"
+      destination_branch:
+        description: "Branch to create PR against"
+        required: false
+        type: string
+        default: "dev"
+    secrets:
+      GITHUB_USER_NAME:
+        description: "Github user who we'll use to create PR; must have write access"
+        required: true
+      GITHUB_USER_EMAIL:
+        description: "Email for github user who we'll use to create PR; must have write access"
+        required: true
+      USER_TOKEN:
+        description: 'Github user token, used to fetch private dependencies'
+        required: true
+
+jobs:
+  create-failed-workflow-pr:
+    name: Create PR for failed workflow 
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/create-label
+      with:
+        label: ${{ inputs.label }}
+        color: ${{ inputs.label_color }}
+        description: "This label is used to indicate that a failed workflow has failed"
+        force: "false"
+    - uses: ./.github/actions/create-failed-workflow-pr
+      with:
+        actor: ${{ secrets.GITHUB_USER_NAME }}
+        actor_email: ${{ secrets.GITHUB_USER_EMAIL }}
+        destination_branch: ${{ inputs.destination_branch }}
+        label: ${{ inputs.label }}
+        pr_assignee: ${{ github.actor }}
