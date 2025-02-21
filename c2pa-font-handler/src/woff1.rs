@@ -19,6 +19,7 @@ use crate::{data::Data, FontDirectoryEntry};
 pub mod directory;
 pub mod font;
 pub mod header;
+pub mod metadata;
 
 /// WOFF1 table
 pub type Table = Data;
@@ -27,10 +28,4 @@ pub type Table = Data;
 pub trait WoffDirectoryEntry: FontDirectoryEntry {
     /// Checks if the table is compressed
     fn is_compressed(&self) -> bool;
-}
-
-/// Provides access to the `metadata` section of the WOFF file.
-pub trait WoffMetadata {
-    /// Returns the uncompressed metadata section, if any, of the WOFF file.
-    fn metadata(&self) -> Option<Vec<u8>>;
 }
