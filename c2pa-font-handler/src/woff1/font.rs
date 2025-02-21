@@ -19,10 +19,12 @@ use std::{
     io::{Read, Seek},
 };
 
-use super::{directory::Woff1Directory, header::Woff1Header, table::Table};
+use super::{
+    directory::Woff1Directory, header::Woff1Header, Table, WoffMetadata,
+};
 use crate::{
-    error::FontIoError, tag::FontTag, Font, FontDataExactRead, FontDataRead,
-    FontDataWrite, FontDirectory, FontHeader, MutFontDataWrite,
+    data::Data, error::FontIoError, tag::FontTag, Font, FontDataExactRead,
+    FontDataRead, FontDataWrite, FontDirectory, FontHeader, MutFontDataWrite,
 };
 
 /// WOFF 1.0 WOFF header chunk name
@@ -50,8 +52,25 @@ pub struct Woff1Font {
     header: Woff1Header,
     directory: Woff1Directory,
     tables: BTreeMap<FontTag, Table>,
-    meta: Option<Table>,
-    private_data: Option<Table>,
+    meta: Option<Data>,
+    private_data: Option<Data>,
+}
+
+#[cfg(feature = "compression")]
+impl WoffMetadata for Woff1Font {
+    fn metadata(&self) -> Option<Vec<u8>> {
+        self.meta.as_ref().map(|t| {
+            let mut output = Vec::new();
+            flate2::Decompress::new(true)
+                .decompress(
+                    t.data(),
+                    &mut output,
+                    flate2::FlushDecompress::Finish,
+                )
+                .expect("Failed to decompress metadata");
+            output
+        })
+    }
 }
 
 impl FontDataRead for Woff1Font {
@@ -69,7 +88,7 @@ impl FontDataRead for Woff1Font {
         )?;
         let mut tables = BTreeMap::new();
         for entry in directory.entries() {
-            let table = Table::from_reader_exact(
+            let table = Data::from_reader_exact(
                 reader,
                 entry.offset as u64,
                 entry.compLength as usize,
@@ -77,7 +96,7 @@ impl FontDataRead for Woff1Font {
             tables.insert(entry.tag, table);
         }
         let meta = if meta_length > 0 {
-            Some(Table::from_reader_exact(
+            Some(Data::from_reader_exact(
                 reader,
                 header.metaOffset as u64,
                 meta_length as usize,
@@ -86,7 +105,7 @@ impl FontDataRead for Woff1Font {
             None
         };
         let private_data = if private_length > 0 {
-            Some(Table::from_reader_exact(
+            Some(Data::from_reader_exact(
                 reader,
                 header.privOffset as u64,
                 private_length as usize,
@@ -101,19 +120,6 @@ impl FontDataRead for Woff1Font {
             meta,
             private_data,
         })
-    }
-}
-
-impl FontDataExactRead for Woff1Font {
-    type Error = FontIoError;
-
-    fn from_reader_exact<T: Read + Seek + ?Sized>(
-        reader: &mut T,
-        offset: u64,
-        _size: usize,
-    ) -> Result<Self, Self::Error> {
-        reader.seek(std::io::SeekFrom::Start(offset))?;
-        Self::from_reader(reader)
     }
 }
 

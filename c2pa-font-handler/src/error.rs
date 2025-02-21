@@ -25,6 +25,9 @@ pub enum FontIoError {
     /// Content credential record not found
     #[error("A content credential was not found")]
     ContentCredentialNotFound,
+    /// Failed to write the font data.
+    #[error("Failed to write font data")]
+    FailedToWriteFontData(std::io::Error),
     /// Failed to write the font table data.
     #[error("Failed to write font table data")]
     FailedToWriteTableData(std::io::Error),

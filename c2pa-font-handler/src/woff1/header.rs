@@ -32,7 +32,7 @@ use crate::{
 /// layer of "font" types (FWORD, FIXED, etc.)?
 ///
 /// WOFF1 header
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[repr(C, packed(1))]
 #[allow(non_snake_case)]
 pub struct Woff1Header {

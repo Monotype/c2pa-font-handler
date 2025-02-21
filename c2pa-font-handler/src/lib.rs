@@ -49,6 +49,7 @@ use std::{
 use tag::FontTag;
 
 pub mod c2pa;
+pub mod data;
 pub mod error;
 pub(crate) mod magic;
 pub mod sfnt;

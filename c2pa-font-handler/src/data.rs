@@ -12,71 +12,80 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//! WOFF1 font file table. These tables are really SFNT tables that are either
-//! stored as is or compressed.
+//! WOFF1 extension metadata
 
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::num::Wrapping;
 
 use crate::{
     error::FontIoError, utils, FontDataChecksum, FontDataExactRead,
     FontDataWrite, FontTable,
 };
 
-/// Generic font table with unknown contents.
-pub struct Table {
-    /// The raw data of the table
-    pub data: Vec<u8>,
+/// WOFF1 extension metadata
+
+#[derive(Debug, Default)]
+pub struct Data {
+    /// The data from the metadata block
+    pub(crate) data: Vec<u8>,
 }
 
-impl FontDataExactRead for Table {
-    type Error = FontIoError;
+impl Data {
+    /// Get the data associated with the metadata
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
 
-    fn from_reader_exact<T: Read + Seek + ?Sized>(
-        reader: &mut T,
-        offset: u64,
-        size: usize,
-    ) -> Result<Self, Self::Error> {
-        reader.seek(SeekFrom::Start(offset))?;
-        let mut data = vec![0; size];
-        reader.read_exact(&mut data)?;
-
-        Ok(Table { data })
+    /// Set the data associated with the metadata
+    pub fn set_data(&mut self, data: Vec<u8>) {
+        self.data = data;
     }
 }
 
-impl FontDataWrite for Table {
-    type Error = FontIoError;
+impl FontDataExactRead for Data {
+    type Error = crate::error::FontIoError;
 
-    fn write<TDest: Write + ?Sized>(
+    fn from_reader_exact<T: std::io::Read + std::io::Seek + ?Sized>(
+        reader: &mut T,
+        _offset: u64,
+        size: usize,
+    ) -> Result<Self, Self::Error> {
+        let mut data = vec![0; size];
+        reader.read_exact(&mut data)?;
+        Ok(Data { data })
+    }
+}
+
+impl FontDataWrite for Data {
+    type Error = crate::error::FontIoError;
+
+    fn write<TDest: std::io::Write + ?Sized>(
         &self,
         dest: &mut TDest,
     ) -> Result<(), Self::Error> {
-        // write all of the data to the destination
         dest.write_all(&self.data[..])
-            .map_err(FontIoError::FailedToWriteTableData)?;
-        // And determine the padding needed to be byte aligned
+            .map_err(FontIoError::FailedToWriteFontData)?;
         let limit = self.data.len() % 4;
         if limit > 0 {
             let padding = vec![0; 4 - limit];
-            dest.write_all(&padding)
-                .map_err(FontIoError::FailedToWriteTableData)?;
+            dest.write_all(&padding[..])
+                .map_err(FontIoError::FailedToWriteFontData)?;
         }
         Ok(())
     }
 }
 
-impl FontDataChecksum for Table {
-    fn checksum(&self) -> std::num::Wrapping<u32> {
+impl FontDataChecksum for Data {
+    fn checksum(&self) -> Wrapping<u32> {
         utils::checksum(&self.data)
     }
 }
 
-impl FontTable for Table {
+impl FontTable for Data {
     fn len(&self) -> u32 {
         self.data.len() as u32
     }
 }
 
 #[cfg(test)]
-#[path = "table_test.rs"]
+#[path = "data_test.rs"]
 mod tests;

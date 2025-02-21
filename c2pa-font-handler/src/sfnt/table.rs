@@ -16,7 +16,6 @@
 
 pub(crate) mod c2pa;
 pub(crate) mod dsig;
-pub(crate) mod generic;
 pub(crate) mod head;
 pub(crate) mod named_table;
 
@@ -24,8 +23,6 @@ pub(crate) mod named_table;
 pub use c2pa::TableC2PA;
 // Export DSIG table
 pub use dsig::TableDSIG;
-// Export generic table
-pub use generic::TableGeneric;
 // Export head table
 pub use head::TableHead;
 // Export named table

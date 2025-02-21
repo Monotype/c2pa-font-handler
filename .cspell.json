@@ -21,6 +21,7 @@
     "byteorder",
     "cksum",
     "DSIG",
+    "flate",
     "fullword",
     "FWORD",
     "gitflow",
@@ -30,11 +31,11 @@
     "ppem",
     "repr",
     "reqs",
+    "rustup",
     "sfnt",
     "Stubber",
-    "toolset",
-    "rustup",
     "thiserror",
+    "toolset",
     "xdadau"
   ]
 }
