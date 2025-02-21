@@ -30,6 +30,11 @@ pub struct Data {
 }
 
 impl Data {
+    /// Create a new Data record with the given data
+    pub fn new(data: Vec<u8>) -> Self {
+        Data { data }
+    }
+
     /// Get the data associated with the metadata
     pub fn data(&self) -> &[u8] {
         &self.data

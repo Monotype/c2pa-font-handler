@@ -20,11 +20,14 @@ use std::{
 };
 
 use super::{
-    directory::Woff1Directory, header::Woff1Header, Table, WoffMetadata,
+    directory::{Woff1Directory, Woff1DirectoryEntry},
+    header::Woff1Header,
+    Table,
 };
 use crate::{
-    data::Data, error::FontIoError, tag::FontTag, Font, FontDataExactRead,
-    FontDataRead, FontDataWrite, FontDirectory, FontHeader, MutFontDataWrite,
+    data::Data, error::FontIoError, tag::FontTag, utils::align_to_four, Font,
+    FontDataExactRead, FontDataRead, FontDataWrite, FontDirectory, FontHeader,
+    FontTable, MutFontDataWrite,
 };
 
 /// WOFF 1.0 WOFF header chunk name
@@ -49,28 +52,11 @@ const WOFF_PRIVATE_CHUNK_NAME: FontTag = FontTag {
 /// Implementation of an woff1 font.
 #[derive(Default)]
 pub struct Woff1Font {
-    header: Woff1Header,
-    directory: Woff1Directory,
-    tables: BTreeMap<FontTag, Table>,
-    meta: Option<Data>,
-    private_data: Option<Data>,
-}
-
-#[cfg(feature = "compression")]
-impl WoffMetadata for Woff1Font {
-    fn metadata(&self) -> Option<Vec<u8>> {
-        self.meta.as_ref().map(|t| {
-            let mut output = Vec::new();
-            flate2::Decompress::new(true)
-                .decompress(
-                    t.data(),
-                    &mut output,
-                    flate2::FlushDecompress::Finish,
-                )
-                .expect("Failed to decompress metadata");
-            output
-        })
-    }
+    pub(crate) header: Woff1Header,
+    pub(crate) directory: Woff1Directory,
+    pub(crate) tables: BTreeMap<FontTag, Table>,
+    pub(crate) meta: Option<Data>,
+    pub(crate) private_data: Option<Data>,
 }
 
 impl FontDataRead for Woff1Font {
@@ -88,18 +74,21 @@ impl FontDataRead for Woff1Font {
         )?;
         let mut tables = BTreeMap::new();
         for entry in directory.entries() {
+            let aligned_length =
+                align_to_four(entry.compLength as u32) as usize;
             let table = Data::from_reader_exact(
                 reader,
                 entry.offset as u64,
-                entry.compLength as usize,
+                aligned_length,
             )?;
             tables.insert(entry.tag, table);
         }
         let meta = if meta_length > 0 {
+            let aligned_length = align_to_four(meta_length) as usize;
             Some(Data::from_reader_exact(
                 reader,
                 header.metaOffset as u64,
-                meta_length as usize,
+                aligned_length,
             )?)
         } else {
             None
@@ -130,14 +119,59 @@ impl MutFontDataWrite for Woff1Font {
         &mut self,
         dest: &mut TDest,
     ) -> Result<(), Self::Error> {
-        // Write the header
+        let mut neo_header = Woff1Header::default();
+        let mut neo_directory = Woff1Directory::default();
+
+        neo_header.flavor = self.header.flavor;
+        neo_header.length = self.header.length;
+        neo_header.numTables = self.tables.len() as u16;
+        neo_header.reserved = self.header.reserved;
+        neo_header.totalSfntSize = self.header.totalSfntSize;
+        neo_header.majorVersion = self.header.majorVersion;
+        neo_header.minorVersion = self.header.minorVersion;
+        neo_header.metaOffset = self.header.metaOffset;
+        neo_header.metaLength = self.header.metaLength;
+        neo_header.metaOrigLength = self.header.metaOrigLength;
+        neo_header.privOffset = self.header.privOffset;
+        neo_header.privLength = self.header.privLength;
+
+        let new_table_count = self.tables.len() as u16;
+
+        let mut running_offset = Woff1Header::SIZE as u32
+            + new_table_count as u32 * Woff1DirectoryEntry::SIZE as u32;
+
+        self.directory.physical_order().iter().for_each(|entry| {
+            if self.tables.contains_key(&entry.tag) {
+                let table = self.tables.get(&entry.tag).unwrap();
+                let neo_entry = Woff1DirectoryEntry {
+                    tag: entry.tag,
+                    offset: running_offset,
+                    compLength: entry.compLength,
+                    origLength: entry.origLength,
+                    origChecksum: entry.origChecksum,
+                };
+                neo_directory.add_entry(neo_entry);
+                running_offset += align_to_four(table.len()) as u32;
+            }
+        });
+
+        neo_directory.sort_entries(|entry| entry.tag);
+        if let Some(meta) = &self.meta {
+            neo_header.metaOffset = running_offset;
+            neo_header.metaLength = align_to_four(meta.len()) as u32;
+            running_offset += neo_header.metaLength;
+        }
+        if let Some(private) = &self.private_data {
+            neo_header.privOffset = running_offset;
+            neo_header.privLength = align_to_four(private.len()) as u32;
+            running_offset += neo_header.privLength;
+        }
+        self.header = neo_header;
+        self.directory = neo_directory;
         self.header.write(dest)?;
-        // Write the directory
         self.directory.write(dest)?;
-        // Write out all of the table entries
-        for entry in self.directory.entries() {
-            let table = self.tables.get(&entry.tag).unwrap();
-            table.write(dest)?;
+        for entry in self.directory.physical_order().iter() {
+            self.tables[&entry.tag].write(dest)?;
         }
         // If we have metadata, write it
         if let Some(meta) = &self.meta {
