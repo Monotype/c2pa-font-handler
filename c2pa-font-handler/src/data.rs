@@ -51,9 +51,10 @@ impl FontDataExactRead for Data {
 
     fn from_reader_exact<T: std::io::Read + std::io::Seek + ?Sized>(
         reader: &mut T,
-        _offset: u64,
+        offset: u64,
         size: usize,
     ) -> Result<Self, Self::Error> {
+        reader.seek(std::io::SeekFrom::Start(offset))?;
         let mut data = vec![0; size];
         reader.read_exact(&mut data)?;
         Ok(Data { data })
