@@ -100,12 +100,12 @@ fn test_woff1_read_with_private_data() {
         0x00, 0x00, 0x00, 0x00, // Metadata Original Length
         0x00, 0x00, 0x00, 0x44, // Private Offset
         0x00, 0x00, 0x00, 0x04, // Private Length
-        0x74, 0x64, 0x75, 0x74, // Directory entry - tag (tdut)
+        0x74, 0x65, 0x73, 0x74, // Directory entry - tag (test)
         0x00, 0x00, 0x00, 0x40, // Directory entry - offset
         0x00, 0x00, 0x00, 0x04, // Directory entry - comp length
         0x00, 0x00, 0x00, 0x04, // Directory entry - orig length
         0x00, 0x00, 0x00, 0x00, // Directory entry - orig checksum
-        0x04, 0x03, 0x02, 0x01, // 'tdut' table
+        0x04, 0x03, 0x02, 0x01, // 'test' table
         0x77, 0x55, 0x33, 0x58, // Private data
     ];
     let mut woff_reader = Cursor::new(woff_data);
@@ -130,8 +130,8 @@ fn test_woff1_read_with_private_data() {
             privLength: 0x0000_0004,
         }
     ));
-    assert!(woff.contains_table(&FontTag::new(*b"tdut")));
-    let table = woff.table(&FontTag::new(*b"tdut")).unwrap();
+    assert!(woff.contains_table(&FontTag::new(*b"test")));
+    let table = woff.table(&FontTag::new(*b"test")).unwrap();
     assert_eq!(table.len(), 4);
     assert_eq!(table.data(), &[0x04, 0x03, 0x02, 0x01]);
     let private_data = woff.private_data.unwrap();
@@ -154,12 +154,12 @@ fn test_woff1_write_with_private_data_non_4byte_aligned() {
         0x00, 0x00, 0x00, 0x00, // Metadata Original Length
         0x00, 0x00, 0x00, 0x44, // Private Offset
         0x00, 0x00, 0x00, 0x05, // Private Length
-        0x74, 0x64, 0x75, 0x74, // Directory entry - tag (tdut)
+        0x74, 0x65, 0x73, 0x74, // Directory entry - tag (text)
         0x00, 0x00, 0x00, 0x40, // Directory entry - offset
         0x00, 0x00, 0x00, 0x04, // Directory entry - comp length
         0x00, 0x00, 0x00, 0x04, // Directory entry - orig length
         0x00, 0x00, 0x00, 0x00, // Directory entry - orig checksum
-        0x04, 0x03, 0x02, 0x01, // 'tdut' table
+        0x04, 0x03, 0x02, 0x01, // 'test' table
         0x77, 0x55, 0x33, 0x58, // Private data
         0x00,
     ];
