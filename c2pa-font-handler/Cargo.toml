@@ -24,18 +24,15 @@ edition = "2021"
 license = "Apache-2.0"
 
 [features]
-default = ["sfnt", "woff"]
-compression = ["dep:flate2"]
+default = ["sfnt"]
 sfnt = []
-woff = ["compression"]
+woff = []
 
 
 [dependencies]
 anyhow.workspace = true
 byteorder.workspace = true
 bytes.workspace = true
-flate2 = { workspace = true, optional = true }
-quick-xml.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

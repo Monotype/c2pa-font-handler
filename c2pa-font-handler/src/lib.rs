@@ -55,6 +55,7 @@ pub(crate) mod magic;
 pub mod sfnt;
 pub mod tag;
 pub(crate) mod utils;
+#[cfg(feature = "woff")]
 pub mod woff1;
 
 /// Trait for computing a checksum on SFNT data.
