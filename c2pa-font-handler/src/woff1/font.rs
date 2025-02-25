@@ -30,27 +30,7 @@ use crate::{
     FontTable, MutFontDataWrite,
 };
 
-/// WOFF 1.0 WOFF header chunk name
-const WOFF1_HEADER_CHUNK_NAME: FontTag = FontTag {
-    data: *b"\x00\x00\x00w",
-};
-
-/// Pseudo-tag for the table directory
-const WOFF1_DIRECTORY_CHUNK_NAME: FontTag = FontTag {
-    data: *b"\x00\x00\x01D",
-};
-
-/// WOFF 1.0 / 2.0 XML metadata
-const WOFF_METADATA_CHUNK_NAME: FontTag = FontTag {
-    data: *b"\x7F\x7F\x7FM",
-};
-
-/// WOFF 1.0 / 2.0 trailing private data
-const WOFF_PRIVATE_CHUNK_NAME: FontTag = FontTag {
-    data: *b"\x7F\x7F\x7FP",
-};
 /// Implementation of an woff1 font.
-#[derive(Default)]
 pub struct Woff1Font {
     pub(crate) header: Woff1Header,
     pub(crate) directory: Woff1Directory,
@@ -65,16 +45,23 @@ impl FontDataRead for Woff1Font {
     fn from_reader<T: Read + Seek + ?Sized>(
         reader: &mut T,
     ) -> Result<Self, Self::Error> {
+        // Read in the WOFF1 header
         let header = Woff1Header::from_reader(reader)?;
+        // Determine if we have extension metadata to read
         let meta_length = header.metaLength;
+        // Determine if we have private data to read
         let private_length = header.privLength;
+        // Read in the directory
         let directory = Woff1Directory::from_reader_with_count(
             reader,
             header.num_tables() as usize,
         )?;
+        // And setup to read the contents of the tables
         let mut tables = BTreeMap::new();
         for entry in directory.entries() {
+            // Get the 4-byte aligned length of the table
             let aligned_length = align_to_four(entry.compLength) as usize;
+            // Read in the table data
             let table = Data::from_reader_exact(
                 reader,
                 entry.offset as u64,
@@ -82,6 +69,7 @@ impl FontDataRead for Woff1Font {
             )?;
             tables.insert(entry.tag, table);
         }
+        // If we had extension metadata to read, read it
         let meta = if meta_length > 0 {
             let aligned_length = align_to_four(meta_length) as usize;
             Some(Data::from_reader_exact(
@@ -92,6 +80,7 @@ impl FontDataRead for Woff1Font {
         } else {
             None
         };
+        // If we had private data to read, read it
         let private_data = if private_length > 0 {
             Some(Data::from_reader_exact(
                 reader,
@@ -101,6 +90,8 @@ impl FontDataRead for Woff1Font {
         } else {
             None
         };
+
+        // Return the WOFF1 font
         Ok(Self {
             header,
             directory,
@@ -118,9 +109,11 @@ impl MutFontDataWrite for Woff1Font {
         &mut self,
         dest: &mut TDest,
     ) -> Result<(), Self::Error> {
+        // Setup to write our new header and directory
         let mut neo_header = Woff1Header::default();
         let mut neo_directory = Woff1Directory::default();
 
+        // Fill in the new header with the old header's values
         neo_header.flavor = self.header.flavor;
         neo_header.length = self.header.length;
         neo_header.numTables = self.tables.len() as u16;
@@ -134,11 +127,14 @@ impl MutFontDataWrite for Woff1Font {
         neo_header.privOffset = self.header.privOffset;
         neo_header.privLength = self.header.privLength;
 
+        // Fill in the new directory with the old directory's values
         let new_table_count = self.tables.len() as u16;
 
+        // Use a running offset to calculate the new offsets
         let mut running_offset = Woff1Header::SIZE as u32
             + new_table_count as u32 * Woff1DirectoryEntry::SIZE as u32;
 
+        // Iterate over the old directory and add entries to the new directory
         self.directory.physical_order().iter().for_each(|entry| {
             if self.tables.contains_key(&entry.tag) {
                 let table = self.tables.get(&entry.tag).unwrap();
@@ -154,20 +150,29 @@ impl MutFontDataWrite for Woff1Font {
             }
         });
 
+        // Sort the new directory by tag
         neo_directory.sort_entries(|entry| entry.tag);
+
+        // If we have extension metadata, update the header
         if let Some(meta) = &self.meta {
             neo_header.metaOffset = running_offset;
             neo_header.metaLength = align_to_four(meta.len());
             running_offset += neo_header.metaLength;
         }
+
+        // If we have private data, update the header
         if let Some(private) = &self.private_data {
             neo_header.privOffset = running_offset;
             neo_header.privLength = align_to_four(private.len());
         }
+        // Update ourselves with the new header and directory
         self.header = neo_header;
         self.directory = neo_directory;
+
+        // Write the header and directory
         self.header.write(dest)?;
         self.directory.write(dest)?;
+        // And write out the tables
         for entry in self.directory.physical_order().iter() {
             self.tables[&entry.tag].write(dest)?;
         }

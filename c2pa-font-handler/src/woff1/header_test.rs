@@ -157,7 +157,7 @@ fn test_woff1_header_checksum() {
         privLength: 0x0000_0000_0000_0000,
     };
     let checksum = woff.checksum();
-    let expected = Wrapping(0x774f_4646 as u32) // signature
+    let expected = Wrapping(0x774f_4646_u32) // signature
     + Wrapping(0x4f54_544f) // flavor
     + Wrapping(0x0000_0374) // length
     + Wrapping(0x000a_0000) // numTables + reserved

@@ -132,11 +132,11 @@ fn test_woff1_directory_entry_checksum() {
     let checksum = entry.checksum();
     assert_eq!(
         checksum,
-        Wrapping(0x74657374 as u32)
-            + Wrapping(0x9abcdef0)
-            + Wrapping(0x99887766)
-            + Wrapping(0x12345678)
-            + Wrapping(0x13579bdf)
+        Wrapping(0x7465_7374_u32)
+            + Wrapping(0x9ab_cdef0)
+            + Wrapping(0x998_87766)
+            + Wrapping(0x123_45678)
+            + Wrapping(0x135_79bdf)
     );
 }
 
@@ -300,16 +300,16 @@ fn test_woff1_directory_checksum() {
     let checksum = dir.checksum();
     assert_eq!(
         checksum,
-        Wrapping(0x74657374 as u32)
-            + Wrapping(0x9abcdef0)
-            + Wrapping(0x99887766)
-            + Wrapping(0x12345678)
-            + Wrapping(0x13579bdf)
-            + Wrapping(0x61626364)
-            + Wrapping(0x9abcdef0)
-            + Wrapping(0x99887766)
-            + Wrapping(0x12345678)
-            + Wrapping(0x13579bdf)
+        Wrapping(0x7465_7374_u32)
+            + Wrapping(0x9abc_def0)
+            + Wrapping(0x9988_7766)
+            + Wrapping(0x1234_5678)
+            + Wrapping(0x1357_9bdf)
+            + Wrapping(0x6162_6364)
+            + Wrapping(0x9abc_def0)
+            + Wrapping(0x9988_7766)
+            + Wrapping(0x1234_5678)
+            + Wrapping(0x1357_9bdf)
     );
 }
 
