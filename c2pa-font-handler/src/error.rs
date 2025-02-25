@@ -64,12 +64,21 @@ pub enum FontIoError {
     /// The font table is truncated.
     #[error("The font table is truncated: {0}")]
     LoadTableTruncated(FontTag),
-    /// An error occurred while generating a string from UTF-8 bytes.
-    #[error("Error occurred while generating a string from UTF-8 bytes: {0}")]
-    StringFromUtf8(#[from] std::string::FromUtf8Error),
+    /// Error in the quick-xml module
+    #[error(transparent)]
+    QuickXmlError(#[from] quick_xml::Error),
+    /// Error deserializing XML
+    #[error("Error deserializing XML: {0}")]
+    QuickXmlDeError(#[from] quick_xml::DeError),
+    /// Error serializing XML
+    #[error("Error serializing XML: {0}")]
+    QuickXmlSeError(#[from] quick_xml::SeError),
     /// Save errors.
     #[error("Error saving the font: {0}")]
     SaveError(#[from] FontSaveError),
+    /// An error occurred while generating a string from UTF-8 bytes.
+    #[error("Error occurred while generating a string from UTF-8 bytes: {0}")]
+    StringFromUtf8(#[from] std::string::FromUtf8Error),
     /// When determining the type of font, the magic number was not recognized.
     #[error("An unknown magic number was encountered: {0}")]
     UnknownMagic(u32),

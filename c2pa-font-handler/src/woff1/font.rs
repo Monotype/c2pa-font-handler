@@ -74,8 +74,7 @@ impl FontDataRead for Woff1Font {
         )?;
         let mut tables = BTreeMap::new();
         for entry in directory.entries() {
-            let aligned_length =
-                align_to_four(entry.compLength as u32) as usize;
+            let aligned_length = align_to_four(entry.compLength) as usize;
             let table = Data::from_reader_exact(
                 reader,
                 entry.offset as u64,
@@ -151,20 +150,19 @@ impl MutFontDataWrite for Woff1Font {
                     origChecksum: entry.origChecksum,
                 };
                 neo_directory.add_entry(neo_entry);
-                running_offset += align_to_four(table.len()) as u32;
+                running_offset += align_to_four(table.len());
             }
         });
 
         neo_directory.sort_entries(|entry| entry.tag);
         if let Some(meta) = &self.meta {
             neo_header.metaOffset = running_offset;
-            neo_header.metaLength = align_to_four(meta.len()) as u32;
+            neo_header.metaLength = align_to_four(meta.len());
             running_offset += neo_header.metaLength;
         }
         if let Some(private) = &self.private_data {
             neo_header.privOffset = running_offset;
-            neo_header.privLength = align_to_four(private.len()) as u32;
-            running_offset += neo_header.privLength;
+            neo_header.privLength = align_to_four(private.len());
         }
         self.header = neo_header;
         self.directory = neo_directory;

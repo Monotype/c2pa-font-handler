@@ -23,12 +23,50 @@ fn test_woff_metadata_read_write() {
     let mut woff_reader = std::io::Cursor::new(woff_data);
     let mut woff = Woff1Font::from_reader(&mut woff_reader).unwrap();
     let mut woff_writer = std::io::Cursor::new(Vec::new());
-    let metadata = Metadata::default();
-    woff.set_metadata(metadata);
+    let metadata = Metadata {
+        version: "1.0".to_string(),
+        unique_ids: Some(vec![UniqueId {
+            id: "unique_id".to_string(),
+        }]),
+        vendor: Some(vec![Vendor {
+            name: "vendor".to_string(),
+            url: Some("https://example.com/vendor".to_string()),
+            ..Default::default()
+        }]),
+        credits: Some(Credits {
+            credits: vec![
+                Credit {
+                    name: "credit".to_string(),
+                    url: Some("https://example.com/credit".to_string()),
+                    ..Default::default()
+                },
+                Credit {
+                    name: "credit2".to_string(),
+                    url: Some("https://example.com/credit2".to_string()),
+                    ..Default::default()
+                },
+            ],
+        }),
+        description: Some(vec![Description {
+            url: Some("https://example.com/description".to_string()),
+            text: vec![Text {
+                text: "A member of the demo font family".to_string(),
+                xml_lang: Some("en".to_string()),
+                dir: Some(TextDirection::RightToLeft),
+                class: Some(vec!["test_class".to_string()]),
+            }],
+        }]),
+        ..Default::default()
+    };
+    println!("{:?}", metadata);
+    woff.set_metadata(metadata).unwrap();
     woff.write(&mut woff_writer).unwrap();
     let mut woff_reader = std::io::Cursor::new(woff_writer.into_inner());
     let woff = Woff1Font::from_reader(&mut woff_reader).unwrap();
-    let metadata = woff.metadata();
+    let result = woff.metadata();
+    println!("{:?}", result);
+    assert!(result.is_ok());
+    let metadata = result.unwrap();
     assert!(metadata.is_some());
     let metadata = metadata.unwrap();
     println!("{:?}", metadata);

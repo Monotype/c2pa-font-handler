@@ -96,12 +96,12 @@ impl FontDataWrite for Woff1DirectoryEntry {
 }
 
 impl FontDataChecksum for Woff1DirectoryEntry {
-    fn checksum(&self) -> std::num::Wrapping<u32> {
-        std::num::Wrapping(u32::from_be_bytes(self.tag.data()))
-            + std::num::Wrapping(self.offset)
-            + std::num::Wrapping(self.compLength)
-            + std::num::Wrapping(self.origLength)
-            + std::num::Wrapping(self.origChecksum)
+    fn checksum(&self) -> Wrapping<u32> {
+        Wrapping(u32::from_be_bytes(self.tag.data()))
+            + Wrapping(self.offset)
+            + Wrapping(self.compLength)
+            + Wrapping(self.origLength)
+            + Wrapping(self.origChecksum)
     }
 }
 
@@ -194,7 +194,7 @@ impl FontDataWrite for Woff1Directory {
 }
 
 impl FontDataChecksum for Woff1Directory {
-    fn checksum(&self) -> std::num::Wrapping<u32> {
+    fn checksum(&self) -> Wrapping<u32> {
         match self.entries.is_empty() {
             true => Wrapping(0_u32),
             false => self

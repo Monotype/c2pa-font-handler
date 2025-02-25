@@ -23,8 +23,9 @@ use std::{
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::{
-    error::FontIoError, magic::Magic, FontDataChecksum, FontDataExactRead,
-    FontDataRead, FontDataWrite, FontHeader,
+    error::FontIoError, magic::Magic, utils::u32_from_u16_pair,
+    FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
+    FontHeader,
 };
 
 /// All the serialization structures so far have been defined using native
@@ -37,32 +38,32 @@ use crate::{
 #[allow(non_snake_case)]
 pub struct Woff1Header {
     /// The 'magic' number for WOFF1 files (i.e., 0x774F4646 as defined in https://www.w3.org/TR/2012/REC-WOFF-20121213/).
-    pub signature: u32,
+    pub(crate) signature: u32,
     /// The "sfnt flavor" of the font.
-    pub flavor: u32,
+    pub(crate) flavor: u32,
     /// The length of the WOFF file.
-    pub length: u32,
+    pub(crate) length: u32,
     /// The number of tables in the font.
-    pub numTables: u16,
+    pub(crate) numTables: u16,
     /// Reserved; must be 0.
-    pub reserved: u16,
+    pub(crate) reserved: u16,
     /// Total size needed for the uncompressed font data, including the sfnt
     /// header, directory, and font tables (including padding).
-    pub totalSfntSize: u32,
+    pub(crate) totalSfntSize: u32,
     /// Major version of the WOFF file format.
-    pub majorVersion: u16,
+    pub(crate) majorVersion: u16,
     /// Minor version of the WOFF file format.
-    pub minorVersion: u16,
+    pub(crate) minorVersion: u16,
     /// Offset to the 'metadata' block, from the beginning of the WOFF file.
-    pub metaOffset: u32,
+    pub(crate) metaOffset: u32,
     /// Length of the 'metadata' block.
-    pub metaLength: u32,
+    pub(crate) metaLength: u32,
     /// Uncompressed size of the 'metadata' block.
-    pub metaOrigLength: u32,
+    pub(crate) metaOrigLength: u32,
     /// Offset to the private data block, from the beginning of the WOFF file.
-    pub privOffset: u32,
+    pub(crate) privOffset: u32,
     /// Length of the private data block.
-    pub privLength: u32,
+    pub(crate) privLength: u32,
 }
 
 impl Default for Woff1Header {
@@ -156,15 +157,17 @@ impl FontDataWrite for Woff1Header {
 
 impl FontDataChecksum for Woff1Header {
     fn checksum(&self) -> Wrapping<u32> {
-        todo!()
-        /*
-        // 0x00
-        Wrapping(self.sfntVersion as u32)
-            // 0x04
-            + u32_from_u16_pair(self.numTables, self.searchRange)
-            // 0x08
-            + u32_from_u16_pair(self.entrySelector, self.rangeShift)
-            */
+        Wrapping(self.signature)
+            + Wrapping(self.flavor)
+            + Wrapping(self.length)
+            + u32_from_u16_pair(self.numTables, self.reserved)
+            + Wrapping(self.totalSfntSize)
+            + u32_from_u16_pair(self.majorVersion, self.minorVersion)
+            + Wrapping(self.metaOffset)
+            + Wrapping(self.metaLength)
+            + Wrapping(self.metaOrigLength)
+            + Wrapping(self.privOffset)
+            + Wrapping(self.privLength)
     }
 }
 

@@ -21,26 +21,38 @@ use serde::{Deserialize, Serialize};
 use super::{
     directory::Woff1DirectoryEntry, font::Woff1Font, header::Woff1Header,
 };
-use crate::{data::Data, FontDirectory};
+use crate::{data::Data, error::FontIoError, FontDirectory};
 
 /// Metadata section of the WOFF file
 #[derive(Debug, Default, Deserialize, Serialize)]
+#[serde(rename = "metadata")]
 pub struct Metadata {
+    #[serde(rename = "@version")]
     version: String,
+    #[serde(rename = "uniqueid", skip_serializing_if = "Option::is_none")]
     unique_ids: Option<Vec<UniqueId>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     vendor: Option<Vec<Vendor>>,
-    credits: Option<Vec<Credits>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    credits: Option<Credits>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     description: Option<Vec<Description>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     license: Option<Vec<License>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     copyright: Option<Vec<Copyright>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     trademark: Option<Vec<Trademark>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     licensee: Option<Vec<Licensee>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     extensions: Option<Vec<Extension>>,
 }
 
 /// Unique ID for the metadata
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct UniqueId {
+    #[serde(rename = "@id")]
     id: String,
 }
 
@@ -49,8 +61,10 @@ pub struct UniqueId {
 pub enum TextDirection {
     /// The text is written from left to right
     #[default]
+    #[serde(rename = "ltr")]
     LeftToRight,
     /// The text is written from right to left
+    #[serde(rename = "rtl")]
     RightToLeft,
 }
 
@@ -58,12 +72,16 @@ pub enum TextDirection {
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Vendor {
     /// The name of the font vendor.
+    #[serde(rename = "@name")]
     name: String,
     /// The URL of the font vendor.
+    #[serde(rename = "@url", skip_serializing_if = "Option::is_none")]
     url: Option<String>,
     /// The text direction.
+    #[serde(rename = "@dir", skip_serializing_if = "Option::is_none")]
     dir: Option<TextDirection>,
     /// An arbitrary set of tokens.
+    #[serde(rename = "@class", skip_serializing_if = "Option::is_none")]
     class: Option<Vec<String>>,
 }
 
@@ -71,35 +89,46 @@ pub struct Vendor {
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Credit {
     /// The name of the entity being credited.
+    #[serde(rename = "@name")]
     name: String,
     /// The URL of the entity being credited.
+    #[serde(rename = "@url", skip_serializing_if = "Option::is_none")]
     url: Option<String>,
     /// The role of the entity being credited.
+    #[serde(rename = "@role", skip_serializing_if = "Option::is_none")]
     role: Option<String>,
     /// The text direction.
+    #[serde(rename = "@dir", skip_serializing_if = "Option::is_none")]
     dir: Option<TextDirection>,
     /// An arbitrary set of tokens.
+    #[serde(rename = "@class", skip_serializing_if = "Option::is_none")]
     class: Option<Vec<String>>,
 }
 
 /// A list of credits, from the metadata
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Credits {
+    #[serde(rename = "credit")]
     credits: Vec<Credit>,
 }
 
 /// Represents text in the metadata
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Text {
+    #[serde(rename = "$value")]
     text: String,
+    #[serde(rename = "@xml:lang", skip_serializing_if = "Option::is_none")]
     xml_lang: Option<String>,
+    #[serde(rename = "@dir", skip_serializing_if = "Option::is_none")]
     dir: Option<TextDirection>,
+    #[serde(rename = "@class", skip_serializing_if = "Option::is_none")]
     class: Option<Vec<String>>,
 }
 
 /// An arbitrary text description of the font's design, history, etc.
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Description {
+    #[serde(rename = "@url", skip_serializing_if = "Option::is_none")]
     url: Option<String>,
     text: Vec<Text>,
 }
@@ -107,7 +136,9 @@ pub struct Description {
 /// Licensing information for the font
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct License {
+    #[serde(rename = "@url", skip_serializing_if = "Option::is_none")]
     url: Option<String>,
+    #[serde(rename = "@id", skip_serializing_if = "Option::is_none")]
     id: Option<String>,
     text: Vec<Text>,
 }
@@ -127,86 +158,95 @@ pub struct Trademark {
 /// The licensee for the font.
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Licensee {
+    #[serde(rename = "@name")]
     name: String,
+    #[serde(rename = "@dir", skip_serializing_if = "Option::is_none")]
     dir: Option<TextDirection>,
+    #[serde(rename = "@class", skip_serializing_if = "Option::is_none")]
     class: Option<Vec<String>>,
 }
 
 /// An extension item in the metadata.
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct ExtensionItem {
+    #[serde(rename = "@id", skip_serializing_if = "Option::is_none")]
     id: Option<String>,
+    #[serde(rename = "name")]
     name: Vec<Name>,
+    #[serde(rename = "$value")]
     value: Vec<Value>,
 }
 
 /// An extension to the metadata.
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Extension {
+    #[serde(rename = "@id", skip_serializing_if = "Option::is_none")]
     id: Option<String>,
-    name: Option<Vec<String>>,
+    name: Vec<String>,
     item: Vec<ExtensionItem>,
 }
 
 /// A name in the metadata.
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Name {
+    #[serde(rename = "@xml:lang", skip_serializing_if = "Option::is_none")]
     xml_lang: Option<String>,
+    #[serde(rename = "@dir", skip_serializing_if = "Option::is_none")]
     dir: Option<TextDirection>,
+    #[serde(rename = "@class", skip_serializing_if = "Option::is_none")]
     class: Option<Vec<String>>,
 }
 
 /// A value in the metadata.
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Value {
+    #[serde(rename = "@xml:lang", skip_serializing_if = "Option::is_none")]
     xml_lang: Option<String>,
+    #[serde(rename = "@dir", skip_serializing_if = "Option::is_none")]
     dir: Option<TextDirection>,
+    #[serde(rename = "@class", skip_serializing_if = "Option::is_none")]
     class: Option<Vec<String>>,
+    #[serde(rename = "$value", skip_serializing_if = "Option::is_none")]
+    text: Option<String>,
 }
 
 /// Provides access to the `metadata` section of the WOFF file.
 pub trait WoffMetadata {
+    /// The error type for this trait.
+    type Error;
     /// Returns the uncompressed metadata section, if any, of the WOFF file.
-    fn metadata(&self) -> Option<Metadata>;
+    fn metadata(&self) -> Result<Option<Metadata>, Self::Error>;
 
     /// Sets the metadata section of the WOFF file.
-    fn set_metadata(&mut self, metadata: Metadata);
+    fn set_metadata(&mut self, metadata: Metadata) -> Result<(), Self::Error>;
 }
 
 #[cfg(feature = "compression")]
 impl WoffMetadata for Woff1Font {
-    fn metadata(&self) -> Option<Metadata> {
-        self.meta.as_ref().map(|t| {
-            let mut output = Vec::new();
-            let input_data = t.data();
-            println!("length: {:?}", input_data.len());
-            println!(" First 20 bytes: {:?}", &input_data[..20]);
-            println!(
-                " Last 20 bytes: {:?}",
-                &input_data[input_data.len() - 20..]
-            );
-            let mut decoder = flate2::read::ZlibDecoder::new(input_data);
-            std::io::copy(&mut decoder, &mut output)
-                .expect("Failed to decompress metadata");
+    type Error = FontIoError;
 
-            serde_xml_rs::from_reader(&output[..])
-                .expect("Failed to parse metadata")
-        })
+    fn metadata(&self) -> Result<Option<Metadata>, Self::Error> {
+        if let Some(meta) = self.meta.as_ref() {
+            let mut output = Vec::new();
+            let input_data = meta.data();
+            let mut decoder = flate2::read::ZlibDecoder::new(input_data);
+            std::io::copy(&mut decoder, &mut output)?;
+            Ok(quick_xml::de::from_reader(&output[..])?)
+        } else {
+            Ok(None)
+        }
     }
 
-    fn set_metadata(&mut self, metadata: Metadata) {
-        let mut output = Vec::new();
-        serde_xml_rs::to_writer(&mut output, &metadata)
-            .expect("Failed to serialize metadata");
-        let mut compressed = Vec::new();
+    fn set_metadata(&mut self, metadata: Metadata) -> Result<(), Self::Error> {
+        let mut output = String::new();
+        quick_xml::se::to_writer(&mut output, &metadata)?;
         let mut encoder = flate2::write::ZlibEncoder::new(
             Vec::new(),
             flate2::Compression::default(),
         );
-        encoder
-            .write_all(&output)
-            .expect("Failed to compress metadata");
-        compressed = encoder.finish().expect("Failed to compress metadata");
+        println!("Data: {:#?}", output);
+        encoder.write_all(output.as_bytes())?;
+        let compressed = encoder.finish()?;
 
         println!("length: {:?}", compressed.len());
         println!(" First 20 bytes: {:?}", &compressed[..20]);
@@ -230,6 +270,7 @@ impl WoffMetadata for Woff1Font {
                 .map(|t| (t.data().len() + 3) & !3)
                 .sum::<usize>() as u32;
         self.header.metaOffset = metadata_offset;
+        Ok(())
     }
 }
 
