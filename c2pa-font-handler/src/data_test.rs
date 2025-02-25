@@ -95,13 +95,18 @@ fn test_table_generic_write_with_bad_buffer_size() {
 
 #[test]
 fn test_table_generic_write_with_bad_buffer_size_and_padding() {
-    let generic = Data {
-        data: vec![0x00, 0x00, 0x00, 0x01, 0x00],
-    };
+    let generic = Data::new(vec![0x00, 0x00, 0x00, 0x01, 0x00]);
     let mut buffer = [0; 4];
     let mut cursor = Cursor::new(&mut buffer[..]);
     let result = generic.write(&mut cursor);
     assert!(result.is_err());
     let err = result.err().unwrap();
     assert!(matches!(err, FontIoError::FailedToWriteFontData(_)));
+}
+
+#[test]
+fn test_set_data() {
+    let mut data = Data::default();
+    data.set_data(vec![0x00, 0x00, 0x00, 0x01]);
+    assert_eq!(data.data, vec![0x00, 0x00, 0x00, 0x01]);
 }

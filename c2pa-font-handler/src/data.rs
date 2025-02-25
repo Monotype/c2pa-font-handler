@@ -12,7 +12,8 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//! WOFF1 extension metadata
+//! A generic data structure for reading and writing data (e.g. OTF/WOFF1
+//! tables).
 
 use std::num::Wrapping;
 
@@ -21,11 +22,11 @@ use crate::{
     FontDataWrite, FontTable,
 };
 
-/// WOFF1 extension metadata
+/// Generic data structure for reading and writing data (e.g. OTF/WOFF1 tables).
 
 #[derive(Debug, Default)]
 pub struct Data {
-    /// The data from the metadata block
+    /// The data
     pub(crate) data: Vec<u8>,
 }
 
@@ -35,12 +36,12 @@ impl Data {
         Data { data }
     }
 
-    /// Get the data associated with the metadata
+    /// Get the associated data
     pub fn data(&self) -> &[u8] {
         &self.data
     }
 
-    /// Set the data associated with the metadata
+    /// Set the associated data
     pub fn set_data(&mut self, data: Vec<u8>) {
         self.data = data;
     }
