@@ -15,7 +15,10 @@
 //! A generic data structure for reading and writing data (e.g. OTF/WOFF1
 //! tables).
 
-use std::num::Wrapping;
+use std::{
+    io::{Read, Seek, SeekFrom},
+    num::Wrapping,
+};
 
 use crate::{
     error::FontIoError, utils, FontDataChecksum, FontDataExactRead,
@@ -50,12 +53,12 @@ impl Data {
 impl FontDataExactRead for Data {
     type Error = crate::error::FontIoError;
 
-    fn from_reader_exact<T: std::io::Read + std::io::Seek + ?Sized>(
+    fn from_reader_exact<T: Read + Seek + ?Sized>(
         reader: &mut T,
         offset: u64,
         size: usize,
     ) -> Result<Self, Self::Error> {
-        reader.seek(std::io::SeekFrom::Start(offset))?;
+        reader.seek(SeekFrom::Start(offset))?;
         let mut data = vec![0; size];
         reader.read_exact(&mut data)?;
         Ok(Data { data })
