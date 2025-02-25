@@ -19,7 +19,6 @@ use crate::data::Data;
 pub mod directory;
 pub mod font;
 pub mod header;
-pub mod metadata;
 
 /// WOFF1 table
 pub type Table = Data;
