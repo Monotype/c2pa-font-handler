@@ -37,7 +37,7 @@ use crate::{
 #[repr(C, packed(1))]
 #[allow(non_snake_case)]
 pub struct Woff1Header {
-    /// The 'magic' number for WOFF1 files (i.e., 0x774F4646 as defined in https://www.w3.org/TR/2012/REC-WOFF-20121213/).
+    /// The 'magic' number for WOFF1 files (i.e., 0x774F4646 as defined in <https://www.w3.org/TR/2012/REC-WOFF-20121213/>).
     pub(crate) signature: u32,
     /// The "sfnt flavor" of the font.
     pub(crate) flavor: u32,

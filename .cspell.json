@@ -19,6 +19,7 @@
   ],
   "words": [
     "byteorder",
+    "cdef",
     "cksum",
     "DSIG",
     "flate",
