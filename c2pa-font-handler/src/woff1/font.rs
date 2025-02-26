@@ -35,7 +35,7 @@ pub struct Woff1Font {
     pub(crate) header: Woff1Header,
     pub(crate) directory: Woff1Directory,
     pub(crate) tables: BTreeMap<FontTag, Table>,
-    pub(crate) meta: Option<Data>,
+    pub(crate) metadata: Option<Data>,
     pub(crate) private_data: Option<Data>,
 }
 
@@ -71,11 +71,10 @@ impl FontDataRead for Woff1Font {
         }
         // If we had extension metadata to read, read it
         let meta = if meta_length > 0 {
-            let aligned_length = align_to_four(meta_length) as usize;
             Some(Data::from_reader_exact(
                 reader,
                 header.metaOffset as u64,
-                aligned_length,
+                meta_length as usize,
             )?)
         } else {
             None
@@ -96,7 +95,7 @@ impl FontDataRead for Woff1Font {
             header,
             directory,
             tables,
-            meta,
+            metadata: meta,
             private_data,
         })
     }
@@ -154,16 +153,17 @@ impl MutFontDataWrite for Woff1Font {
         neo_directory.sort_entries(|entry| entry.tag);
 
         // If we have extension metadata, update the header
-        if let Some(meta) = &self.meta {
+        if let Some(meta) = &self.metadata {
             neo_header.metaOffset = running_offset;
-            neo_header.metaLength = align_to_four(meta.len());
-            running_offset += neo_header.metaLength;
+            let aligned_length = align_to_four(meta.len());
+            neo_header.metaLength = meta.len();
+            running_offset += aligned_length;
         }
 
         // If we have private data, update the header
         if let Some(private) = &self.private_data {
             neo_header.privOffset = running_offset;
-            neo_header.privLength = align_to_four(private.len());
+            neo_header.privLength = private.len();
         }
         // Update ourselves with the new header and directory
         self.header = neo_header;
@@ -177,7 +177,7 @@ impl MutFontDataWrite for Woff1Font {
             self.tables[&entry.tag].write(dest)?;
         }
         // If we have metadata, write it
-        if let Some(meta) = &self.meta {
+        if let Some(meta) = &self.metadata {
             meta.write(dest)?;
         }
         // If we have private data, write it
