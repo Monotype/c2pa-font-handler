@@ -16,7 +16,7 @@
 //! tables).
 
 use std::{
-    io::{Read, Seek, SeekFrom},
+    io::{Read, Seek, SeekFrom, Write},
     num::Wrapping,
 };
 
@@ -51,7 +51,7 @@ impl Data {
 }
 
 impl FontDataExactRead for Data {
-    type Error = crate::error::FontIoError;
+    type Error = FontIoError;
 
     fn from_reader_exact<T: Read + Seek + ?Sized>(
         reader: &mut T,
@@ -66,9 +66,9 @@ impl FontDataExactRead for Data {
 }
 
 impl FontDataWrite for Data {
-    type Error = crate::error::FontIoError;
+    type Error = FontIoError;
 
-    fn write<TDest: std::io::Write + ?Sized>(
+    fn write<TDest: Write + ?Sized>(
         &self,
         dest: &mut TDest,
     ) -> Result<(), Self::Error> {
