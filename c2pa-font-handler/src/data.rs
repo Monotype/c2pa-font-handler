@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Monotype Imaging Inc.
+// Copyright 2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -12,21 +12,45 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//! Generic/Unspecified SFNT table.
-use std::io::{Read, Seek, SeekFrom, Write};
+//! A generic data structure for reading and writing data (e.g. OTF/WOFF1
+//! tables).
+
+use std::{
+    io::{Read, Seek, SeekFrom, Write},
+    num::Wrapping,
+};
 
 use crate::{
     error::FontIoError, utils, FontDataChecksum, FontDataExactRead,
     FontDataWrite, FontTable,
 };
 
-/// Generic font table with unknown contents.
-pub struct TableGeneric {
-    /// The raw data of the table
-    pub data: Vec<u8>,
+/// Generic data structure for reading and writing data (e.g. OTF/WOFF1 tables).
+
+#[derive(Debug, Default)]
+pub struct Data {
+    /// The data
+    pub(crate) data: Vec<u8>,
 }
 
-impl FontDataExactRead for TableGeneric {
+impl Data {
+    /// Create a new Data record with the given data
+    pub fn new(data: Vec<u8>) -> Self {
+        Data { data }
+    }
+
+    /// Get the associated data
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
+
+    /// Set the associated data
+    pub fn set_data(&mut self, data: Vec<u8>) {
+        self.data = data;
+    }
+}
+
+impl FontDataExactRead for Data {
     type Error = FontIoError;
 
     fn from_reader_exact<T: Read + Seek + ?Sized>(
@@ -37,44 +61,41 @@ impl FontDataExactRead for TableGeneric {
         reader.seek(SeekFrom::Start(offset))?;
         let mut data = vec![0; size];
         reader.read_exact(&mut data)?;
-
-        Ok(TableGeneric { data })
+        Ok(Data { data })
     }
 }
 
-impl FontDataWrite for TableGeneric {
+impl FontDataWrite for Data {
     type Error = FontIoError;
 
     fn write<TDest: Write + ?Sized>(
         &self,
         dest: &mut TDest,
     ) -> Result<(), Self::Error> {
-        // write all of the data to the destination
         dest.write_all(&self.data[..])
-            .map_err(FontIoError::FailedToWriteTableData)?;
-        // And determine the padding needed to be byte aligned
+            .map_err(FontIoError::FailedToWriteFontData)?;
         let limit = self.data.len() % 4;
         if limit > 0 {
             let padding = vec![0; 4 - limit];
-            dest.write_all(&padding)
-                .map_err(FontIoError::FailedToWriteTableData)?;
+            dest.write_all(&padding[..])
+                .map_err(FontIoError::FailedToWriteFontData)?;
         }
         Ok(())
     }
 }
 
-impl FontDataChecksum for TableGeneric {
-    fn checksum(&self) -> std::num::Wrapping<u32> {
+impl FontDataChecksum for Data {
+    fn checksum(&self) -> Wrapping<u32> {
         utils::checksum(&self.data)
     }
 }
 
-impl FontTable for TableGeneric {
+impl FontTable for Data {
     fn len(&self) -> u32 {
         self.data.len() as u32
     }
 }
 
 #[cfg(test)]
-#[path = "generic_test.rs"]
+#[path = "data_test.rs"]
 mod tests;

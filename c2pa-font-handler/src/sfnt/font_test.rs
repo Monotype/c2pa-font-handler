@@ -17,8 +17,8 @@
 use super::*;
 use crate::{
     c2pa::{ContentCredentialRecord, UpdateContentCredentialRecord},
+    data::Data,
     error::FontIoError,
-    sfnt::table::generic::TableGeneric,
 };
 
 #[test]
@@ -27,16 +27,6 @@ fn test_load_of_font() {
     let mut reader = std::io::Cursor::new(font_data);
     let font = SfntFont::from_reader(&mut reader).unwrap();
     //assert_eq!(font.header.version(), 0x00010000);
-    assert_eq!(font.header.num_tables(), 11);
-    assert_eq!(font.tables.len(), 11);
-}
-
-#[test]
-fn test_load_of_font_exact() {
-    let font_data = include_bytes!("../../../.devtools/font.otf");
-    let mut reader = std::io::Cursor::new(font_data);
-    let font =
-        SfntFont::from_reader_exact(&mut reader, 0, font_data.len()).unwrap();
     assert_eq!(font.header.num_tables(), 11);
     assert_eq!(font.tables.len(), 11);
 }
@@ -120,13 +110,13 @@ fn test_font_write_new_table_added() {
     let mut writer = std::io::Cursor::new(Vec::new());
 
     // Add a new table to the font
-    let new_table = TableGeneric {
+    let new_table = Data {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     };
     font.tables
         .insert(FontTag::new(*b"test"), NamedTable::Generic(new_table));
 
-    let new_table = TableGeneric {
+    let new_table = Data {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     };
     font.tables

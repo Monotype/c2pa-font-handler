@@ -15,12 +15,10 @@
 //! Named table enumeration.
 use std::io::{Read, Seek, Write};
 
-use super::{
-    dsig::TableDSIG, generic::TableGeneric, head::TableHead, TableC2PA,
-};
+use super::{dsig::TableDSIG, head::TableHead, TableC2PA};
 use crate::{
-    error::FontIoError, tag::FontTag, FontDataChecksum, FontDataExactRead,
-    FontDataWrite, FontTable,
+    data::Data, error::FontIoError, tag::FontTag, FontDataChecksum,
+    FontDataExactRead, FontDataWrite, FontTable,
 };
 
 /// Various types of tables by name
@@ -33,7 +31,7 @@ pub enum NamedTable {
     /// 'head' table
     Head(TableHead),
     /// Generic table
-    Generic(TableGeneric),
+    Generic(Data),
 }
 
 impl NamedTable {
@@ -51,7 +49,7 @@ impl NamedTable {
                 .map(NamedTable::DSIG),
             FontTag::HEAD => TableHead::from_reader_exact(reader, offset, size)
                 .map(NamedTable::Head),
-            _ => TableGeneric::from_reader_exact(reader, offset, size)
+            _ => Data::from_reader_exact(reader, offset, size)
                 .map(NamedTable::Generic),
         }
     }

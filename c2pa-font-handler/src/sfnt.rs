@@ -12,21 +12,9 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//! SFNT font file table.
+//! Module for reading and writing SFNT font files.
 
-pub(crate) mod c2pa;
-pub(crate) mod dsig;
-pub(crate) mod generic;
-pub(crate) mod head;
-pub(crate) mod named_table;
-
-// Export C2PA table
-pub use c2pa::TableC2PA;
-// Export DSIG table
-pub use dsig::TableDSIG;
-// Export generic table
-pub use generic::TableGeneric;
-// Export head table
-pub use head::TableHead;
-// Export named table
-pub use named_table::NamedTable;
+pub mod directory;
+pub mod font;
+pub mod header;
+pub mod table;
