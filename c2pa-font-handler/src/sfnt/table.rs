@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -12,9 +12,18 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//! Module for reading and writing SFNT font files.
+//! SFNT font file table.
 
-pub mod directory;
-pub mod font;
-pub mod header;
-pub mod table;
+pub(crate) mod c2pa;
+pub(crate) mod dsig;
+pub(crate) mod head;
+pub(crate) mod named_table;
+
+// Export C2PA table
+pub use c2pa::TableC2PA;
+// Export DSIG table
+pub use dsig::TableDSIG;
+// Export head table
+pub use head::TableHead;
+// Export named table
+pub use named_table::NamedTable;

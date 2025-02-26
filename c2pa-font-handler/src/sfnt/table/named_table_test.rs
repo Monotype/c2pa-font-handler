@@ -306,7 +306,7 @@ fn test_named_table_generic_read_exact() {
 
 #[test]
 fn test_named_table_generic_len() {
-    let generic = NamedTable::Generic(TableGeneric {
+    let generic = NamedTable::Generic(Data {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     });
     assert_eq!(generic.len(), 8);
@@ -315,7 +315,7 @@ fn test_named_table_generic_len() {
 
 #[test]
 fn test_name_table_generic_checksum() {
-    let generic = NamedTable::Generic(TableGeneric {
+    let generic = NamedTable::Generic(Data {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     });
     let checksum = generic.checksum();
@@ -324,7 +324,7 @@ fn test_name_table_generic_checksum() {
 
 #[test]
 fn test_named_table_generic_write() {
-    let generic = NamedTable::Generic(TableGeneric {
+    let generic = NamedTable::Generic(Data {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     });
     let mut buffer = Vec::new();

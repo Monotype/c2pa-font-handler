@@ -25,6 +25,9 @@ pub enum FontIoError {
     /// Content credential record not found
     #[error("A content credential was not found")]
     ContentCredentialNotFound,
+    /// Failed to write the font data.
+    #[error("Failed to write font data")]
+    FailedToWriteFontData(std::io::Error),
     /// Failed to write the font table data.
     #[error("Failed to write font table data")]
     FailedToWriteTableData(std::io::Error),
@@ -61,12 +64,12 @@ pub enum FontIoError {
     /// The font table is truncated.
     #[error("The font table is truncated: {0}")]
     LoadTableTruncated(FontTag),
-    /// An error occurred while generating a string from UTF-8 bytes.
-    #[error("Error occurred while generating a string from UTF-8 bytes: {0}")]
-    StringFromUtf8(#[from] std::string::FromUtf8Error),
     /// Save errors.
     #[error("Error saving the font: {0}")]
     SaveError(#[from] FontSaveError),
+    /// An error occurred while generating a string from UTF-8 bytes.
+    #[error("Error occurred while generating a string from UTF-8 bytes: {0}")]
+    StringFromUtf8(#[from] std::string::FromUtf8Error),
     /// When determining the type of font, the magic number was not recognized.
     #[error("An unknown magic number was encountered: {0}")]
     UnknownMagic(u32),

@@ -49,11 +49,14 @@ use std::{
 use tag::FontTag;
 
 pub mod c2pa;
+pub mod data;
 pub mod error;
 pub(crate) mod magic;
 pub mod sfnt;
 pub mod tag;
 pub(crate) mod utils;
+#[cfg(feature = "woff")]
+pub mod woff1;
 
 /// Trait for computing a checksum on SFNT data.
 pub trait FontDataChecksum {

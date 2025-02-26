@@ -33,8 +33,8 @@ use crate::{
     sfnt::table::TableC2PA,
     tag::FontTag,
     utils::align_to_four,
-    Font, FontDSIGStubber, FontDataChecksum, FontDataExactRead, FontDataRead,
-    FontDataWrite, FontDirectory, FontHeader, FontTable, MutFontDataWrite,
+    Font, FontDSIGStubber, FontDataChecksum, FontDataRead, FontDataWrite,
+    FontDirectory, FontHeader, FontTable, MutFontDataWrite,
 };
 
 /// Pseudo-tag for the table directory
@@ -74,19 +74,6 @@ impl FontDataRead for SfntFont {
             directory,
             tables,
         })
-    }
-}
-
-impl FontDataExactRead for SfntFont {
-    type Error = FontIoError;
-
-    fn from_reader_exact<T: Read + Seek + ?Sized>(
-        reader: &mut T,
-        offset: u64,
-        _size: usize,
-    ) -> Result<Self, Self::Error> {
-        reader.seek(std::io::SeekFrom::Start(offset))?;
-        Self::from_reader(reader)
     }
 }
 
