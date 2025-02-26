@@ -24,10 +24,8 @@ edition = "2021"
 license = "Apache-2.0"
 
 [features]
-default = ["sfnt"]
-sfnt = []
+default = []
 woff = []
-
 
 [dependencies]
 anyhow.workspace = true
