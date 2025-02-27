@@ -225,8 +225,8 @@ impl ContentCredentialRecordBuilder {
         }
         // And grab the minor version
         let minor_version = self.minor_version.unwrap_or(DEFAULT_MINOR_VERSION);
-        // Which we can check for a v1, to make sure it is only a minor of 4
-        if major_version == 1u16 && minor_version != 4u16 {
+        // For now we only support 0.1
+        if major_version == 0u16 && minor_version != 1u16 {
             return Err(crate::error::FontIoError::InvalidC2paMinorVersion(
                 minor_version,
             ));

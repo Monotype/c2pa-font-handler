@@ -87,6 +87,18 @@ fn test_record_builder_invalid_minor_version() {
 }
 
 #[test]
+fn test_record_builder_invalid_minor_version_with_valid_major() {
+    let result = ContentCredentialRecord::builder()
+        .with_version(0, 0)
+        .with_active_manifest_uri("http://example.com/manifest".to_owned())
+        .with_content_credential(vec![1, 2, 3, 4])
+        .build();
+    assert!(result.is_err());
+    let error = result.err().unwrap();
+    assert!(matches!(error, FontIoError::InvalidC2paMinorVersion(0)));
+}
+
+#[test]
 fn test_update_record_removed_items() {
     let update_record = UpdateContentCredentialRecord::builder()
         .without_active_manifest_uri()
