@@ -1,4 +1,4 @@
-# @copyright 2024 Monotype Imaging Inc.
+# @copyright 2024-2025 Monotype Imaging Inc.
 #  
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ members = ["c2pa-font-handler"]
 exclude = []
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Michael Brogdon <Michael.Brogdon@monotype.com>"]
 description = "C2PA Font Handler (or codec) to be used with the c2pa-rs SDK."
 
