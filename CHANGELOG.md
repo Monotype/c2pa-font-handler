@@ -6,6 +6,14 @@ This project adheres to [Semantic Versioning](https://semver.org), except that â
 
 Do not manually edit this file. It will be automatically updated when a new release is published.
 ## 0.2.0
+## 0.2.1
+
+27 February 2025
+
+* Don't use stable for the entire action, only during install of tool
+* Revert the Cargo.lock to version 3.
+* CI: Workflow failure - .github/workflows/nightly.yml - 50e2c080ac716ed1e348f83b2be5d6631198704f
+
 
 24 February 2025
 
