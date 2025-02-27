@@ -68,6 +68,47 @@ pub(crate) fn checksum(bytes: &[u8]) -> Wrapping<u32> {
     chunks_cksum + frag_cksum
 }
 
+/// Computes a 32-bit big-endian OpenType-style checksum on the given byte
+/// array as though it began on the specified byte offset, preceded by bytes
+/// containing zero (0).
+///
+/// # Remarks
+/// Note that trailing pad bytes do not affect this checksum - it's not a real
+/// CRC.
+pub(crate) fn checksum_biased(bytes: &[u8], bias: u32) -> Wrapping<u32> {
+    let bytes_len = bytes.len();
+    match bytes_len {
+        0 => Wrapping(0),
+        1..=3 => {
+            // There are too few bytes to read a full u32, and therefore no
+            // need to sum anything; we just need to (probably) rearrange the
+            // bytes we have into the appropriate big-endian value.
+            let fragment = BigEndian::read_uint(bytes, bytes_len) as u32;
+            // Shift the first byte we read into the most-significant position.
+            // Unnerving that we must cast bytes_len here (and in other rotate
+            // calls).
+            let justified_fragment =
+                fragment.rotate_left((4 - bytes_len as u32) * 8);
+            // Now, apply the bias
+            let biased_fragment = justified_fragment.rotate_right(bias * 8);
+            Wrapping(biased_fragment)
+        }
+        _ => {
+            if bias & 3 == 0 {
+                checksum(bytes)
+            } else if bias & 3 == 1 {
+                Wrapping(BigEndian::read_u24(bytes))
+                    + checksum(&(bytes[3..bytes_len]))
+            } else if bias & 3 == 2 {
+                Wrapping(BigEndian::read_u16(bytes) as u32)
+                    + checksum(&(bytes[2..bytes_len]))
+            } else {
+                Wrapping(bytes[0] as u32) + checksum(&(bytes[1..bytes_len]))
+            }
+        }
+    }
+}
+
 /// Assembles two u16 values (with `hi` being the more-significant u16 halfword,
 /// and `lo` being the less-significant u16 halfword) into a u32, returning a
 /// u32 fullword composed of the given halfwords, with `hi` in the
