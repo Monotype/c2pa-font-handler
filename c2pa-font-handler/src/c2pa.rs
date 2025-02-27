@@ -17,13 +17,11 @@
 use crate::{error::FontIoError, sfnt::table::TableC2PA};
 
 /// Default major version
-pub(crate) const DEFAULT_MAJOR_VERSION: u16 = 1u16;
-/// Minimum major version
-pub(crate) const MIN_MAJOR_VERSION: u16 = 1u16;
+pub(crate) const DEFAULT_MAJOR_VERSION: u16 = 0u16;
 /// Maximum major version
-pub(crate) const MAX_MAJOR_VERSION: u16 = 1u16;
+pub(crate) const MAX_MAJOR_VERSION: u16 = 0u16;
 /// Default minor version
-pub(crate) const DEFAULT_MINOR_VERSION: u16 = 4u16;
+pub(crate) const DEFAULT_MINOR_VERSION: u16 = 1u16;
 
 /// Support for adding/removing [`ContentCredentialRecord`] items.
 pub trait C2PASupport {
@@ -220,9 +218,7 @@ impl ContentCredentialRecordBuilder {
     ) -> Result<ContentCredentialRecord, crate::error::FontIoError> {
         // Grab the major version
         let major_version = self.major_version.unwrap_or(DEFAULT_MAJOR_VERSION);
-        if major_version < MIN_MAJOR_VERSION
-            || major_version > MAX_MAJOR_VERSION
-        {
+        if major_version > MAX_MAJOR_VERSION {
             return Err(crate::error::FontIoError::InvalidC2paMajorVersion(
                 major_version,
             ));
