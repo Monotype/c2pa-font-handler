@@ -39,6 +39,8 @@ runs:
   steps:
     # Override the local toolset to the latest stable version, as the cargo-edit uses 
     # a lock file that is `version 4`.
+    # We wouldn't have to do this if the cargo-install action had the ability to
+    # specify a toolset version.
     - name: Set to latest toolset
       shell: bash
       run: rustup override set stable
@@ -48,6 +50,11 @@ runs:
       uses: baptiste0928/cargo-install@v3
       with:
         crate: cargo-edit
+
+    # Unset, to continue to use our default version
+    - name: Reset to the default toolset
+      shell: bash
+      run: rustup override unset
 
     # Update workspace version using cargo-edit
     - name: Update workspace version
