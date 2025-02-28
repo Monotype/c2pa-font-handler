@@ -283,26 +283,59 @@ fn test_table_c2pa_write_no_data() {
 #[test]
 fn test_table_c2pa_checksum() {
     let table = TableC2PA {
-        major_version: 1,
-        minor_version: 4,
+        major_version: 0,
+        minor_version: 1,
         active_manifest_uri: Some("test".to_string()),
         manifest_store: Some(vec![1, 2, 3, 4]),
     };
     let checksum = table.checksum();
-    let mut expected_checksum = Wrapping(0x00000000);
-    // Make 32-bit big-endian checksum
-    // Shift the major version by 16 bits to the left and add the minor version
-    expected_checksum += Wrapping(65536 + 4);
-    expected_checksum += Wrapping(20);
-    // Shift the active manifest uri length by 16 bits to the left and add the
-    // reserved field
-    expected_checksum += Wrapping(4 * 65536);
-    expected_checksum += Wrapping(24);
-    expected_checksum += Wrapping(4);
-    // Add the checksum of the uri
+    // Start with the major + minor version
+    let mut expected_checksum = Wrapping(0x00000001);
+    // Then calculate the active manifest offset from the header
+    expected_checksum += Wrapping(0x00000014);
+    // And the active manifest uri length with the reserved field
+    expected_checksum += Wrapping(0x00040000);
+    // And now the offset to the content credential
+    expected_checksum += Wrapping(0x00000018);
+    // And the length of the content credential
+    expected_checksum += Wrapping(0x00000004);
+    // The first 4 bytes of the active manifest uri
     expected_checksum += Wrapping(0x74657374);
-    // Add the checksum of the content credential
+    // The content credential
     expected_checksum += Wrapping(0x01020304);
+
+    assert_eq!(checksum, expected_checksum);
+}
+
+/// Test the checksum calculation when the active manifest uri is not 4-byte
+/// aligned. This was reported as an issue in the original code, so test case
+/// added to ensure it is fixed.
+#[test]
+fn test_table_c2pa_checksum_non_4_byte_aligned() {
+    let table = TableC2PA {
+        major_version: 0,
+        minor_version: 1,
+        active_manifest_uri: Some("test1".to_string()),
+        manifest_store: Some(vec![1, 2, 3, 4]),
+    };
+    let checksum = table.checksum();
+    // Start with the major + minor version
+    let mut expected_checksum = Wrapping(0x00000001);
+    // Then calculate the active manifest offset from the header
+    expected_checksum += Wrapping(0x00000014);
+    // And the active manifest uri length with the reserved field
+    expected_checksum += Wrapping(0x00050000);
+    // And now the offset to the content credential
+    expected_checksum += Wrapping(0x00000019);
+    // And the length of the content credential
+    expected_checksum += Wrapping(0x00000004);
+    // The first 4 bytes of the active manifest uri
+    expected_checksum += Wrapping(0x74657374);
+    // And the last '1' with padding + the first 3 bytes of the content
+    // credential
+    expected_checksum += Wrapping(0x31010203);
+    // The last byte of the content credential padded
+    expected_checksum += Wrapping(0x04000000);
 
     assert_eq!(checksum, expected_checksum);
 }

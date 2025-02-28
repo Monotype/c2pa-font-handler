@@ -153,7 +153,7 @@ fn test_write_font_with_c2pa() {
     let mut reader = std::io::Cursor::new(font_data);
     let mut font = SfntFont::from_reader(&mut reader).unwrap();
     let record = ContentCredentialRecord::builder()
-        .with_version(1, 4)
+        .with_version(0, 1)
         .with_active_manifest_uri("https://example.com".to_string())
         .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
         .build()
@@ -229,7 +229,7 @@ fn test_adding_c2pa_record() {
     let mut reader = std::io::Cursor::new(font_data);
     let mut font = SfntFont::from_reader(&mut reader).unwrap();
     let record = ContentCredentialRecord::builder()
-        .with_version(1, 4)
+        .with_version(0, 1)
         .with_active_manifest_uri("https://example.com".to_string())
         .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
         .build()
@@ -240,8 +240,8 @@ fn test_adding_c2pa_record() {
     let result = font.get_c2pa();
     assert!(result.is_ok());
     let record = result.unwrap().unwrap();
-    assert_eq!(record.major_version(), 1);
-    assert_eq!(record.minor_version(), 4);
+    assert_eq!(record.major_version(), 0);
+    assert_eq!(record.minor_version(), 1);
     assert_eq!(record.active_manifest_uri().unwrap(), "https://example.com");
     assert_eq!(
         record.content_credential().unwrap(),
@@ -255,7 +255,7 @@ fn test_adding_c2pa_record_when_one_exists() {
     let mut reader = std::io::Cursor::new(font_data);
     let mut font = SfntFont::from_reader(&mut reader).unwrap();
     let record = ContentCredentialRecord::builder()
-        .with_version(1, 4)
+        .with_version(0, 1)
         .with_active_manifest_uri("https://example.com".to_string())
         .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
         .build()
@@ -275,7 +275,7 @@ fn test_removing_c2pa_record() {
     let mut reader = std::io::Cursor::new(font_data);
     let mut font = SfntFont::from_reader(&mut reader).unwrap();
     let record = ContentCredentialRecord::builder()
-        .with_version(1, 4)
+        .with_version(0, 1)
         .with_active_manifest_uri("https://example.com".to_string())
         .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
         .build()
@@ -308,7 +308,7 @@ fn test_updating_c2pa_record_when_occupied() {
     let mut reader = std::io::Cursor::new(font_data);
     let mut font = SfntFont::from_reader(&mut reader).unwrap();
     let record = ContentCredentialRecord::builder()
-        .with_version(1, 4)
+        .with_version(0, 1)
         .with_active_manifest_uri("https://example.com".to_string())
         .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
         .build()
@@ -323,8 +323,8 @@ fn test_updating_c2pa_record_when_occupied() {
     let result = font.get_c2pa();
     assert!(result.is_ok());
     let record = result.unwrap().unwrap();
-    assert_eq!(record.major_version(), 1);
-    assert_eq!(record.minor_version(), 4);
+    assert_eq!(record.major_version(), 0);
+    assert_eq!(record.minor_version(), 1);
     assert_eq!(record.active_manifest_uri(), None);
     assert_eq!(
         record.content_credential().unwrap(),
@@ -345,8 +345,8 @@ fn test_updating_c2pa_record_when_vacant() {
     let result = font.get_c2pa();
     assert!(result.is_ok());
     let record = result.unwrap().unwrap();
-    assert_eq!(record.major_version(), 1);
-    assert_eq!(record.minor_version(), 4);
+    assert_eq!(record.major_version(), 0);
+    assert_eq!(record.minor_version(), 1);
     assert_eq!(record.active_manifest_uri(), None);
     assert_eq!(record.content_credential(), None);
 }
