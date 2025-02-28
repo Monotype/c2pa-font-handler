@@ -31,8 +31,8 @@ anyhow = { version = "1.0.94" }
 byteorder = { version = "1.5.0" }
 bytes = { version = "1.9.0" }
 clap = { version = "4.5.23", features = ["derive"] }
-serde = { version = "1.0.215", features = ["derive"] }
-serde_json = { version = "1.0.133" }
+serde = { version = "1.0.218", features = ["derive"] }
+serde_json = { version = "1.0.139" }
 thiserror = { version = "2.0.6" }
 tokio = { version = "1.42.0", features = ["full"] }
 tracing = { version = "0.1.41" }

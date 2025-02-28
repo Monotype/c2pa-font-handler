@@ -19,8 +19,8 @@ use super::*;
 #[test]
 fn test_record_getters() {
     let record = ContentCredentialRecord::default();
-    assert_eq!(record.major_version(), 1);
-    assert_eq!(record.minor_version(), 4);
+    assert_eq!(record.major_version(), 0);
+    assert_eq!(record.minor_version(), 1);
     assert_eq!(record.active_manifest_uri(), None,);
     assert!(record.content_credential().is_none());
 }
@@ -28,7 +28,7 @@ fn test_record_getters() {
 #[test]
 fn test_record_builder() {
     let result = ContentCredentialRecord::builder()
-        .with_version(1, 4)
+        .with_version(0, 1)
         .with_active_manifest_uri("http://example.com/manifest".to_owned())
         .with_content_credential(vec![1, 2, 3, 4])
         .build();
@@ -36,8 +36,8 @@ fn test_record_builder() {
     assert!(result.is_ok());
     let record = result.unwrap();
     if let ContentCredentialRecord {
-        major_version: 1,
-        minor_version: 4,
+        major_version: 0,
+        minor_version: 1,
         active_manifest_uri: Some(uri),
         content_credential: Some(credential),
     } = record
@@ -55,8 +55,8 @@ fn test_record_builder_default() {
     assert!(result.is_ok());
     let record = result.unwrap();
     if let ContentCredentialRecord {
-        major_version: 1,
-        minor_version: 4,
+        major_version: 0,
+        minor_version: 1,
         active_manifest_uri: None,
         content_credential: None,
     } = record
@@ -84,6 +84,18 @@ fn test_record_builder_invalid_minor_version() {
         .with_content_credential(vec![1, 2, 3, 4])
         .build();
     assert!(result.is_err());
+}
+
+#[test]
+fn test_record_builder_invalid_minor_version_with_valid_major() {
+    let result = ContentCredentialRecord::builder()
+        .with_version(0, 0)
+        .with_active_manifest_uri("http://example.com/manifest".to_owned())
+        .with_content_credential(vec![1, 2, 3, 4])
+        .build();
+    assert!(result.is_err());
+    let error = result.err().unwrap();
+    assert!(matches!(error, FontIoError::InvalidC2paMinorVersion(0)));
 }
 
 #[test]

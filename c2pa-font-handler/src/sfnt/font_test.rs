@@ -17,8 +17,8 @@
 use super::*;
 use crate::{
     c2pa::{ContentCredentialRecord, UpdateContentCredentialRecord},
+    data::Data,
     error::FontIoError,
-    sfnt::table::generic::TableGeneric,
 };
 
 #[test]
@@ -27,16 +27,6 @@ fn test_load_of_font() {
     let mut reader = std::io::Cursor::new(font_data);
     let font = SfntFont::from_reader(&mut reader).unwrap();
     //assert_eq!(font.header.version(), 0x00010000);
-    assert_eq!(font.header.num_tables(), 11);
-    assert_eq!(font.tables.len(), 11);
-}
-
-#[test]
-fn test_load_of_font_exact() {
-    let font_data = include_bytes!("../../../.devtools/font.otf");
-    let mut reader = std::io::Cursor::new(font_data);
-    let font =
-        SfntFont::from_reader_exact(&mut reader, 0, font_data.len()).unwrap();
     assert_eq!(font.header.num_tables(), 11);
     assert_eq!(font.tables.len(), 11);
 }
@@ -120,13 +110,13 @@ fn test_font_write_new_table_added() {
     let mut writer = std::io::Cursor::new(Vec::new());
 
     // Add a new table to the font
-    let new_table = TableGeneric {
+    let new_table = Data {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     };
     font.tables
         .insert(FontTag::new(*b"test"), NamedTable::Generic(new_table));
 
-    let new_table = TableGeneric {
+    let new_table = Data {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     };
     font.tables
@@ -163,7 +153,7 @@ fn test_write_font_with_c2pa() {
     let mut reader = std::io::Cursor::new(font_data);
     let mut font = SfntFont::from_reader(&mut reader).unwrap();
     let record = ContentCredentialRecord::builder()
-        .with_version(1, 4)
+        .with_version(0, 1)
         .with_active_manifest_uri("https://example.com".to_string())
         .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
         .build()
@@ -239,7 +229,7 @@ fn test_adding_c2pa_record() {
     let mut reader = std::io::Cursor::new(font_data);
     let mut font = SfntFont::from_reader(&mut reader).unwrap();
     let record = ContentCredentialRecord::builder()
-        .with_version(1, 4)
+        .with_version(0, 1)
         .with_active_manifest_uri("https://example.com".to_string())
         .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
         .build()
@@ -250,8 +240,8 @@ fn test_adding_c2pa_record() {
     let result = font.get_c2pa();
     assert!(result.is_ok());
     let record = result.unwrap().unwrap();
-    assert_eq!(record.major_version(), 1);
-    assert_eq!(record.minor_version(), 4);
+    assert_eq!(record.major_version(), 0);
+    assert_eq!(record.minor_version(), 1);
     assert_eq!(record.active_manifest_uri().unwrap(), "https://example.com");
     assert_eq!(
         record.content_credential().unwrap(),
@@ -265,7 +255,7 @@ fn test_adding_c2pa_record_when_one_exists() {
     let mut reader = std::io::Cursor::new(font_data);
     let mut font = SfntFont::from_reader(&mut reader).unwrap();
     let record = ContentCredentialRecord::builder()
-        .with_version(1, 4)
+        .with_version(0, 1)
         .with_active_manifest_uri("https://example.com".to_string())
         .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
         .build()
@@ -285,7 +275,7 @@ fn test_removing_c2pa_record() {
     let mut reader = std::io::Cursor::new(font_data);
     let mut font = SfntFont::from_reader(&mut reader).unwrap();
     let record = ContentCredentialRecord::builder()
-        .with_version(1, 4)
+        .with_version(0, 1)
         .with_active_manifest_uri("https://example.com".to_string())
         .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
         .build()
@@ -318,7 +308,7 @@ fn test_updating_c2pa_record_when_occupied() {
     let mut reader = std::io::Cursor::new(font_data);
     let mut font = SfntFont::from_reader(&mut reader).unwrap();
     let record = ContentCredentialRecord::builder()
-        .with_version(1, 4)
+        .with_version(0, 1)
         .with_active_manifest_uri("https://example.com".to_string())
         .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
         .build()
@@ -333,8 +323,8 @@ fn test_updating_c2pa_record_when_occupied() {
     let result = font.get_c2pa();
     assert!(result.is_ok());
     let record = result.unwrap().unwrap();
-    assert_eq!(record.major_version(), 1);
-    assert_eq!(record.minor_version(), 4);
+    assert_eq!(record.major_version(), 0);
+    assert_eq!(record.minor_version(), 1);
     assert_eq!(record.active_manifest_uri(), None);
     assert_eq!(
         record.content_credential().unwrap(),
@@ -355,8 +345,8 @@ fn test_updating_c2pa_record_when_vacant() {
     let result = font.get_c2pa();
     assert!(result.is_ok());
     let record = result.unwrap().unwrap();
-    assert_eq!(record.major_version(), 1);
-    assert_eq!(record.minor_version(), 4);
+    assert_eq!(record.major_version(), 0);
+    assert_eq!(record.minor_version(), 1);
     assert_eq!(record.active_manifest_uri(), None);
     assert_eq!(record.content_credential(), None);
 }

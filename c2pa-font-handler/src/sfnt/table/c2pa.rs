@@ -262,7 +262,10 @@ impl FontDataChecksum for TableC2PA {
             Wrapping(0)
         };
         let store_cksum = if let Some(store) = &self.manifest_store {
-            utils::checksum(store)
+            utils::checksum_biased(
+                store,
+                raw_table.activeManifestUriLength as u32,
+            )
         } else {
             Wrapping(0)
         };

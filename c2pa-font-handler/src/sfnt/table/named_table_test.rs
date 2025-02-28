@@ -47,10 +47,7 @@ fn test_named_table_c2pa_len() {
 fn test_named_table_c2pa_checksum() {
     let c2pa = NamedTable::C2PA(TableC2PA::default());
     let checksum = c2pa.checksum();
-    let mut expected_checksum = Wrapping(0x00000000);
-    // Make 32-bit big-endian checksum
-    // Shift the major version by 16 bits to the left and add the minor version
-    expected_checksum += Wrapping(65536 + 4);
+    let expected_checksum = Wrapping(0x00000001);
     assert_eq!(checksum, expected_checksum);
 }
 
@@ -62,8 +59,8 @@ fn test_named_table_c2pa_write() {
     assert_eq!(
         writer.into_inner(),
         vec![
-            0x00, 0x01, // major_version
-            0x00, 0x04, // minor_version
+            0x00, 0x00, // major_version
+            0x00, 0x01, // minor_version
             0x00, 0x00, 0x00, 0x00, // active manifest uri offset
             0x00, 0x00, // active manifest uri length
             0x00, 0x00, // reserved
@@ -306,7 +303,7 @@ fn test_named_table_generic_read_exact() {
 
 #[test]
 fn test_named_table_generic_len() {
-    let generic = NamedTable::Generic(TableGeneric {
+    let generic = NamedTable::Generic(Data {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     });
     assert_eq!(generic.len(), 8);
@@ -315,7 +312,7 @@ fn test_named_table_generic_len() {
 
 #[test]
 fn test_name_table_generic_checksum() {
-    let generic = NamedTable::Generic(TableGeneric {
+    let generic = NamedTable::Generic(Data {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     });
     let checksum = generic.checksum();
@@ -324,7 +321,7 @@ fn test_name_table_generic_checksum() {
 
 #[test]
 fn test_named_table_generic_write() {
-    let generic = NamedTable::Generic(TableGeneric {
+    let generic = NamedTable::Generic(Data {
         data: vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
     });
     let mut buffer = Vec::new();
