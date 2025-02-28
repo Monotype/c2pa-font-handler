@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org), except that â
 
 Do not manually edit this file. It will be automatically updated when a new release is published.
 
+## 0.3.0
+
+28 February 2025
+
+* C2PA-628: (MINOR) Fix the checksum calculation of the SFNT C2PA table ([#18](https://github.com/Monotype/c2pa-font-handler/pull/18))
+* C2PA-623: Initial support for reading/writing WOFF for C2PA ([#14](https://github.com/Monotype/c2pa-font-handler/pull/14))
+
 ## 0.2.1
 
 27 February 2025
