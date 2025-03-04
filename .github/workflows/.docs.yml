@@ -29,7 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@master
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: nightly
       - name: Run cargo docs
