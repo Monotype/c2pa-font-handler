@@ -42,8 +42,11 @@ jobs:
           - bans licenses sources
     steps:
       - uses: actions/checkout@v3
+      # As of rustup 1.28, the toolchain must be installed explicitly.
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: Audit crate dependencies
-        uses: EmbarkStudios/cargo-deny-action@v1
+        uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check ${{ matrix.checks }}
 
@@ -56,7 +59,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: nightly
       - name: Override the toolchain
