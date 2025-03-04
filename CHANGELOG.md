@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org), except that â
 
 Do not manually edit this file. It will be automatically updated when a new release is published.
 
+## 0.3.1
+
+04 March 2025
+
+* Explicitly install the rustup toolchain, to work with v1.28
+* CI: Workflow failure - .github/workflows/nightly.yml - 1ccb489b28d0e885d7c519318ad3d30811193f10
+
 ## 0.3.0
 
 28 February 2025
