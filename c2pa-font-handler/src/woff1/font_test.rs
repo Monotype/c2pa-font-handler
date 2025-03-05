@@ -394,3 +394,17 @@ fn test_woff_font_chunk_reader_metadata_private() {
     assert_eq!(private.chunk_type(), &ChunkType::TableData);
     assert!(!private.should_hash());
 }
+
+#[test]
+#[tracing_test::traced_test]
+fn test_woff_font_chunk_reader_tracing() {
+    // Load the font data bytes
+    let font_data = include_bytes!("../../../.devtools/font.woff");
+    let mut reader = std::io::Cursor::new(font_data);
+    let _ = Woff1Font::get_chunk_positions(&mut reader);
+    assert!(logs_contain("Header position information added"));
+    assert!(logs_contain("Directory position information added"));
+    assert!(logs_contain("Table data position information added"));
+    assert!(!logs_contain("Metadata position information added"));
+    assert!(!logs_contain("Private data position information added"));
+}

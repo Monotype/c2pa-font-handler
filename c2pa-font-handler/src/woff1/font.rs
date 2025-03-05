@@ -214,19 +214,25 @@ impl Font for Woff1Font {
     }
 }
 
+/// Pseudo tag for WOFF header chunk
 const WOFF_HEADER_CHUNK_NAME: FontTag = FontTag {
     data: *b"\x00\x00\x00W",
 };
+/// Pseudo tag for WOFF directory chunk
 const WOFF_DIRECTORY_CHUNK_NAME: FontTag = FontTag {
     data: *b"\x00\x00\x01D",
 };
+/// Pseudo tag for WOFF metadata chunk
 const WOFF_METADATA_CHUNK_NAME: FontTag = FontTag {
     data: *b"\x7F\x7F\x7Fm",
 };
+/// Pseudo tag for WOFF private data chunk
 const WOFF_PRIVATE_DATA_CHUNK_NAME: FontTag = FontTag {
     data: *b"\x7F\x7F\x7FP",
 };
 
+// NOTE: This is still a work in progress, as support C2PA in WOFF has not be
+// fleshed out yet
 impl ChunkReader for Woff1Font {
     type Error = FontIoError;
 
@@ -250,6 +256,7 @@ impl ChunkReader for Woff1Font {
             ChunkType::Header,
             true,
         ));
+        tracing::trace!("Header position information added");
         positions.push(ChunkPosition::new(
             Woff1Header::SIZE as usize,
             size_to_read,
@@ -257,6 +264,7 @@ impl ChunkReader for Woff1Font {
             ChunkType::DirectoryEntry,
             true,
         ));
+        tracing::trace!("Directory position information added");
 
         // Loop through all of the entries
         for entry in directory.entries() {
@@ -267,6 +275,7 @@ impl ChunkReader for Woff1Font {
                 ChunkType::TableData,
                 true,
             ));
+            tracing::trace!("Table data position information added");
         }
 
         // If we have metadata, add it
@@ -278,6 +287,7 @@ impl ChunkReader for Woff1Font {
                 ChunkType::TableData,
                 true,
             ));
+            tracing::trace!("Metadata position information added");
         }
 
         // If we have private data, add it
@@ -287,8 +297,10 @@ impl ChunkReader for Woff1Font {
                 woff_header.privLength as usize,
                 WOFF_PRIVATE_DATA_CHUNK_NAME.data,
                 ChunkType::TableData,
-                false,
+                false, /* Should we not hash the private part? Will this be
+                        * where we store C2PA? */
             ));
+            tracing::trace!("Private data position information added");
         }
         Ok(positions)
     }
