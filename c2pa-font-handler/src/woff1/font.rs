@@ -25,9 +25,13 @@ use super::{
     Table,
 };
 use crate::{
-    data::Data, error::FontIoError, tag::FontTag, utils::align_to_four, Font,
-    FontDataExactRead, FontDataRead, FontDataWrite, FontDirectory, FontHeader,
-    FontTable, MutFontDataWrite,
+    chunks::{ChunkPosition, ChunkReader, ChunkType},
+    data::Data,
+    error::FontIoError,
+    tag::FontTag,
+    utils::align_to_four,
+    Font, FontDataExactRead, FontDataRead, FontDataWrite, FontDirectory,
+    FontDirectoryEntry, FontHeader, FontTable, MutFontDataWrite,
 };
 
 /// Implementation of an woff1 font.
@@ -207,6 +211,86 @@ impl Font for Woff1Font {
 
     fn table(&self, tag: &FontTag) -> Option<&Self::Table> {
         self.tables.get(tag)
+    }
+}
+
+const WOFF_HEADER_CHUNK_NAME: FontTag = FontTag {
+    data: *b"\x00\x00\x00W",
+};
+const WOFF_DIRECTORY_CHUNK_NAME: FontTag = FontTag {
+    data: *b"\x00\x00\x01D",
+};
+const WOFF_METADATA_CHUNK_NAME: FontTag = FontTag {
+    data: *b"\x7F\x7F\x7Fm",
+};
+const WOFF_PRIVATE_DATA_CHUNK_NAME: FontTag = FontTag {
+    data: *b"\x7F\x7F\x7FP",
+};
+
+impl ChunkReader for Woff1Font {
+    type Error = FontIoError;
+
+    fn get_chunk_positions(
+        reader: &mut (impl Read + Seek + ?Sized),
+    ) -> Result<Vec<crate::chunks::ChunkPosition>, Self::Error> {
+        let woff_header = Woff1Header::from_reader(reader)?;
+        let size_to_read =
+            woff_header.numTables as usize * Woff1DirectoryEntry::SIZE;
+        let directory = Woff1Directory::from_reader_exact(
+            reader,
+            Woff1Header::SIZE as u64,
+            size_to_read,
+        )?;
+
+        let mut positions: Vec<ChunkPosition> = Vec::new();
+        positions.push(ChunkPosition::new(
+            0,
+            Woff1Header::SIZE,
+            WOFF_HEADER_CHUNK_NAME.data,
+            ChunkType::Header,
+            true,
+        ));
+        positions.push(ChunkPosition::new(
+            Woff1Header::SIZE as usize,
+            size_to_read,
+            WOFF_DIRECTORY_CHUNK_NAME.data,
+            ChunkType::DirectoryEntry,
+            true,
+        ));
+
+        // Loop through all of the entries
+        for entry in directory.entries() {
+            positions.push(ChunkPosition::new(
+                entry.offset() as usize,
+                entry.length() as usize,
+                entry.tag().data,
+                ChunkType::TableData,
+                true,
+            ));
+        }
+
+        // If we have metadata, add it
+        if woff_header.metaLength > 0 {
+            positions.push(ChunkPosition::new(
+                woff_header.metaOffset as usize,
+                woff_header.metaLength as usize,
+                WOFF_METADATA_CHUNK_NAME.data,
+                ChunkType::TableData,
+                true,
+            ));
+        }
+
+        // If we have private data, add it
+        if woff_header.privLength > 0 {
+            positions.push(ChunkPosition::new(
+                woff_header.privOffset as usize,
+                woff_header.privLength as usize,
+                WOFF_PRIVATE_DATA_CHUNK_NAME.data,
+                ChunkType::TableData,
+                false,
+            ));
+        }
+        Ok(positions)
     }
 }
 
