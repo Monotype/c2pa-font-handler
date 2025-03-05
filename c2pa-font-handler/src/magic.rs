@@ -21,7 +21,7 @@ use super::error::FontIoError;
 /// Note that Embedded OpenType and MicroType Express formats cannot be detected
 /// with a simple magic-number sniff. Conceivably, EOT could be dealt with as a
 /// variation on SFNT, but MTX will needs more exotic handling.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Magic {
     /// 'OTTO' - OpenType
     OpenType = 0x4f54544f,
