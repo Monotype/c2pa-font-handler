@@ -350,3 +350,110 @@ fn test_updating_c2pa_record_when_vacant() {
     assert_eq!(record.active_manifest_uri(), None);
     assert_eq!(record.content_credential(), None);
 }
+
+#[test]
+fn test_sfnt_font_chunk_reader_bad_header() {
+    let mut reader = std::io::Cursor::new(vec![0u8; 10]);
+    let result = SfntFont::get_chunk_positions(&mut reader);
+    assert!(result.is_err());
+    let err = result.err().unwrap();
+    // Since we didn't do an appropriate magic for the font, we should get an
+    // unknown magic error.
+    assert!(matches!(err, FontIoError::UnknownMagic(_)));
+}
+
+#[test]
+fn test_sfnt_font_chunk_reader_bad_directory() {
+    // Mimic a bad font in memory, where the directory is too short
+    let mut reader = std::io::Cursor::new(vec![
+        // Simulate the magic number
+        0x00, 0x01, 0x00, 0x00, // sfntVersion
+        0x00, 0x01, // numTables
+        0x00, 0x00, // searchRange
+        0x00, 0x00, // entrySelector
+        0x00, 0x00, // rangeShift
+        // And one partial table directory entry
+        0x0b, 0x0a, 0x0d, 0x0d, // tag
+    ]);
+    let result = SfntFont::get_chunk_positions(&mut reader);
+    assert!(result.is_err());
+    let err = result.err().unwrap();
+    // Should be a "failed to fill whole buffer" error
+    assert!(matches!(err, FontIoError::IoError(_)));
+    assert_eq!(format!("{}", err), "failed to fill whole buffer");
+}
+
+#[test]
+fn test_sfnt_font_chunk_reader_valid() {
+    let font_bytes = include_bytes!("../../../.devtools/font.otf");
+    let mut reader = std::io::Cursor::new(font_bytes);
+    let result = SfntFont::get_chunk_positions(&mut reader);
+    assert!(result.is_ok());
+    let mut positions = result.unwrap();
+    // Get the first position, should be the header
+    let header = positions.get(0).unwrap();
+    assert_eq!(header.offset(), 0);
+    assert_eq!(header.length(), 12);
+    assert_eq!(header.name(), b" HDR");
+    assert_eq!(header.chunk_type(), &ChunkType::Header);
+    assert!(header.should_hash());
+    positions.remove(0);
+
+    // Then the 2nd one should be the directory
+    let directory = positions.get(0).unwrap();
+    assert_eq!(directory.offset(), 12);
+    assert_eq!(directory.length(), 176);
+    assert_eq!(directory.name(), b" DIR");
+    assert_eq!(directory.chunk_type(), &ChunkType::DirectoryEntry);
+    assert!(directory.should_hash());
+    positions.remove(0);
+
+    // Find the specialized hea1 table, which contains the exclusion of the
+    // checksum adjustment
+    let head1 = positions.iter().find(|p| p.name() == b"hea1").unwrap();
+    assert_eq!(head1.offset(), 196);
+    assert_eq!(head1.length(), 4);
+    assert_eq!(head1.chunk_type(), &ChunkType::TableData);
+    assert!(!head1.should_hash());
+
+    // All the other positions should be included
+    positions.retain(|p| p.name() != b"hea1");
+    for position in positions {
+        assert_eq!(position.chunk_type(), &ChunkType::TableData);
+        assert!(position.should_hash());
+    }
+}
+
+#[test]
+fn test_sfnt_font_chunk_reader_with_c2pa() {
+    // Load the font data bytes
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut reader = std::io::Cursor::new(font_data);
+    // Read in the font, so we can add a C2PA record
+    let mut font = SfntFont::from_reader(&mut reader).unwrap();
+    // Build up the C2PA record
+    let record = ContentCredentialRecord::builder()
+        .with_version(0, 1)
+        .with_active_manifest_uri("https://example.com".to_string())
+        .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
+        .build()
+        .unwrap();
+    // Add it to the font stream
+    font.add_c2pa_record(record).unwrap();
+    // Write the font out to a new writer
+    let mut writer = std::io::Cursor::new(Vec::new());
+    let result = font.write(&mut writer);
+    assert!(result.is_ok());
+    // Get access to the written data
+    let written_data = writer.into_inner();
+    // And use it in a reader to read chunk positions
+    let mut new_reader = std::io::Cursor::new(&written_data);
+    let result = SfntFont::get_chunk_positions(&mut new_reader);
+    assert!(result.is_ok());
+    let positions = result.unwrap();
+    let c2pa = positions.iter().find(|p| p.name() == b"C2PA").unwrap();
+    assert_eq!(c2pa.offset(), 1388);
+    assert_eq!(c2pa.length(), 43);
+    assert_eq!(c2pa.chunk_type(), &ChunkType::TableData);
+    assert!(!c2pa.should_hash());
+}

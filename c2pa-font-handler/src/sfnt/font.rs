@@ -29,16 +29,18 @@ use super::{
 };
 use crate::{
     c2pa::{C2PASupport, UpdatableC2PA},
+    chunks::{
+        ChunkPosition, ChunkReader,
+        ChunkType::{self},
+    },
     error::{FontIoError, FontSaveError},
     sfnt::table::TableC2PA,
     tag::FontTag,
     utils::align_to_four,
-    Font, FontDSIGStubber, FontDataChecksum, FontDataRead, FontDataWrite,
-    FontDirectory, FontHeader, FontTable, MutFontDataWrite,
+    Font, FontDSIGStubber, FontDataChecksum, FontDataExactRead, FontDataRead,
+    FontDataWrite, FontDirectory, FontDirectoryEntry, FontHeader, FontTable,
+    MutFontDataWrite,
 };
-
-/// Pseudo-tag for the table directory
-const _SFNT_DIRECTORY_CHUNK_NAME: FontTag = FontTag { data: *b" DIR" };
 
 /// Implementation of an SFNT font.
 #[derive(Default)]
@@ -311,6 +313,95 @@ impl Font for SfntFont {
 
     fn table(&self, tag: &FontTag) -> Option<&Self::Table> {
         self.tables.get(tag)
+    }
+}
+
+// Used to indicate the header chunks
+const SFNT_HEADER_CHUNK_NAME: FontTag = FontTag { data: *b" HDR" };
+/// Pseudo-tag for the table directory
+const SFNT_DIRECTORY_CHUNK_NAME: FontTag = FontTag { data: *b" DIR" };
+
+impl ChunkReader for SfntFont {
+    type Error = FontIoError;
+
+    fn get_chunk_positions(
+        reader: &mut (impl Read + Seek + ?Sized),
+    ) -> Result<Vec<ChunkPosition>, Self::Error> {
+        let header = SfntHeader::from_reader(reader)?;
+        // Calculate the size to read for the directory
+        let size_to_read = header.numTables as usize * SfntDirectoryEntry::SIZE;
+        // Get the stream offset
+        let offset = reader.stream_position()?;
+        // Read in the directory from the font
+        let directory =
+            SfntDirectory::from_reader_exact(reader, offset, size_to_read)?;
+
+        let mut positions = Vec::new();
+        // Push the header information
+        positions.push(ChunkPosition::new(
+            0,
+            SfntHeader::SIZE,
+            SFNT_HEADER_CHUNK_NAME.data,
+            ChunkType::Header,
+            true,
+        ));
+        // Push the font directory information
+        positions.push(ChunkPosition::new(
+            SfntHeader::SIZE,
+            size_to_read,
+            SFNT_DIRECTORY_CHUNK_NAME.data,
+            ChunkType::DirectoryEntry,
+            true,
+        ));
+
+        // And then go through each table entry and calculate the positions of
+        // the table data.
+        for entry in directory.physical_order() {
+            match entry.tag() {
+                FontTag::C2PA => {
+                    positions.push(ChunkPosition::new(
+                        entry.offset as usize,
+                        entry.length as usize,
+                        entry.tag().data,
+                        ChunkType::TableData,
+                        false,
+                    ));
+                }
+                FontTag::HEAD => {
+                    positions.push(ChunkPosition::new(
+                        entry.offset() as usize,
+                        8_usize,
+                        *b"hea0",
+                        ChunkType::TableData,
+                        true,
+                    ));
+                    positions.push(ChunkPosition::new(
+                        entry.offset() as usize + 8,
+                        4_usize,
+                        *b"hea1",
+                        ChunkType::TableData,
+                        false,
+                    ));
+                    positions.push(ChunkPosition::new(
+                        entry.offset() as usize + 12,
+                        42_usize,
+                        *b"hea2",
+                        ChunkType::TableData,
+                        true,
+                    ));
+                }
+                _ => {
+                    positions.push(ChunkPosition::new(
+                        entry.offset() as usize,
+                        entry.length() as usize,
+                        entry.tag().data,
+                        ChunkType::TableData,
+                        true,
+                    ));
+                }
+            }
+        }
+        Ok(positions)
     }
 }
 
