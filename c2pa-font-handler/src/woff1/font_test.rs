@@ -18,8 +18,13 @@ use std::io::Cursor;
 
 use super::Woff1Font;
 use crate::{
-    tag::FontTag, Font, FontDataRead, FontDirectory, FontTable,
-    MutFontDataWrite,
+    chunks::{ChunkReader, ChunkType},
+    data::Data,
+    error::FontIoError,
+    magic::Magic,
+    tag::FontTag,
+    woff1::header::Woff1Header,
+    Font, FontDataRead, FontDirectory, FontTable, MutFontDataWrite,
 };
 
 #[test]
@@ -32,7 +37,7 @@ fn test_woff1_from_reader() {
     assert!(matches!(
         woff.header(),
         crate::woff1::header::Woff1Header {
-            signature: 0x774f_4646,
+            signature: Magic::Woff,
             flavor: 0x4f54_544f,
             length: 0x0000_0000_0000_0374,
             numTables: 0x000a,
@@ -66,7 +71,7 @@ fn test_woff1_write() {
     assert!(matches!(
         woff.header(),
         crate::woff1::header::Woff1Header {
-            signature: 0x774f_4646,
+            signature: Magic::Woff,
             flavor: 0x4f54_544f,
             length: 0x0000_0000_0000_0374,
             numTables: 0x000a,
@@ -115,7 +120,7 @@ fn test_woff1_read_with_private_data() {
     assert!(matches!(
         woff.header(),
         crate::woff1::header::Woff1Header {
-            signature: 0x774f_4646,
+            signature: Magic::Woff,
             flavor: 0x4f54_544f,
             length: 0x0000_0048,
             numTables: 0x0001,
@@ -208,7 +213,7 @@ fn test_woff1_read_with_metadata() {
     assert!(matches!(
         woff.header(),
         crate::woff1::header::Woff1Header {
-            signature: 0x774f_4646,
+            signature: Magic::Woff,
             flavor: 0x4f54_544f,
             length: 0x0000_0048,
             numTables: 0x0001,
@@ -275,4 +280,117 @@ fn test_woff1_write_with_metadata_non_4byte_aligned() {
     let private_data = woff.private_data.unwrap();
     assert_eq!(private_data.len(), 4);
     assert_eq!(private_data.data(), b"test");
+}
+
+#[test]
+fn test_woff_font_chunk_reader_bad_header() {
+    let mut reader = std::io::Cursor::new(vec![0u8; 10]);
+    let result = Woff1Font::get_chunk_positions(&mut reader);
+    assert!(result.is_err());
+    let err = result.err().unwrap();
+    println!("{:?}", err);
+    // Since we didn't do an appropriate magic for the font, we should get an
+    // unknown magic error.
+    assert!(matches!(err, FontIoError::UnknownMagic(_)));
+}
+
+#[test]
+fn test_woff_font_chunk_reader_bad_directory() {
+    // Mimic a bad font in memory, where the directory is too short
+    let mut reader = std::io::Cursor::new(vec![
+        // Simulate the magic number
+        0x77, 0x4f, 0x46, 0x46, // sfntVersion
+        0x45, 0x54, 0x54, 0x4f, // flavor
+        0x00, 0x00, 0x00, 0x48, // length
+        0x00, 0x01, // numTables
+        0x00, 0x00, // reserved
+        0x00, 0x00, 0x00, 0x18, // totalSfntSize
+        0x00, 0x00, // majorVersion
+        0x00, 0x00, // minorVersion
+        0x00, 0x00, 0x00, 0x00, // metaOffset
+        0x00, 0x00, 0x00, 0x00, // metaLength
+        0x00, 0x00, 0x00, 0x00, // metaOrigLength
+        0x00, 0x00, 0x00, 0x00, // privOffset
+        0x00, 0x00, 0x00, 0x00, // privLength
+        // And one partial table directory entry
+        0x0b, 0x0a, 0x0d, 0x0d, // tag
+    ]);
+    let result = Woff1Font::get_chunk_positions(&mut reader);
+    assert!(result.is_err());
+    let err = result.err().unwrap();
+    println!("{:?}", err);
+    // Should be a "failed to fill whole buffer" error
+    assert!(matches!(err, FontIoError::IoError(_)));
+    assert_eq!(format!("{}", err), "failed to fill whole buffer");
+}
+
+#[test]
+fn test_woff_font_chunk_reader_valid() {
+    let font_bytes = include_bytes!("../../../.devtools/font.woff");
+    let mut reader = std::io::Cursor::new(font_bytes);
+    let result = Woff1Font::get_chunk_positions(&mut reader);
+    assert!(result.is_ok());
+    let mut positions = result.unwrap();
+    // Get the first position, should be the header
+    let header = positions.get(0).unwrap();
+    assert_eq!(header.offset(), 0);
+    assert_eq!(header.length(), Woff1Header::SIZE);
+    assert_eq!(header.name(), b"\x00\x00\x00W");
+    assert_eq!(header.chunk_type(), &ChunkType::Header);
+    assert!(header.should_hash());
+    positions.remove(0);
+
+    // Then the 2nd one should be the directory
+    let directory = positions.get(0).unwrap();
+    assert_eq!(directory.offset(), Woff1Header::SIZE);
+    assert_eq!(directory.length(), 200);
+    assert_eq!(directory.name(), b"\x00\x00\x01D");
+    assert_eq!(directory.chunk_type(), &ChunkType::DirectoryEntry);
+    assert!(directory.should_hash());
+    positions.remove(0);
+
+    // Other positions should be included
+    for position in positions {
+        assert_eq!(position.chunk_type(), &ChunkType::TableData);
+        assert!(position.should_hash());
+    }
+}
+
+#[test]
+fn test_woff_font_chunk_reader_metadata_private() {
+    // Read in the font bytes
+    let font_bytes = include_bytes!("../../../.devtools/font.woff");
+    let mut reader = std::io::Cursor::new(font_bytes);
+    // Parse into a WOFF font container
+    let mut font = Woff1Font::from_reader(&mut reader).unwrap();
+    // Set the metadata and private data
+    font.metadata = Some(Data::new(vec![0x01, 0x02, 0x03, 0x04]));
+    font.private_data = Some(Data::new(vec![0x05, 0x06, 0x07, 0x08]));
+    // And setup to write it back to a buffer
+    let mut writer = std::io::Cursor::new(Vec::new());
+    font.write(&mut writer).unwrap();
+    // Create a new reader around the new written data
+    let mut reader = std::io::Cursor::new(writer.into_inner());
+    // And use that reader to get the positions
+    let result = Woff1Font::get_chunk_positions(&mut reader);
+    assert!(result.is_ok());
+    let positions = result.unwrap();
+    // Should be able to find the metadata, which should be hashed
+    let metadata = positions
+        .iter()
+        .find(|p| p.name() == b"\x7F\x7F\x7Fm")
+        .unwrap();
+    assert_eq!(metadata.offset(), 884);
+    assert_eq!(metadata.length(), 4);
+    assert_eq!(metadata.chunk_type(), &ChunkType::TableData);
+    assert!(metadata.should_hash());
+    // And should be able to find the private data, which should NOT be hashed??
+    let private = positions
+        .iter()
+        .find(|p| p.name() == b"\x7F\x7F\x7FP")
+        .unwrap();
+    assert_eq!(private.offset(), 888);
+    assert_eq!(private.length(), 4);
+    assert_eq!(private.chunk_type(), &ChunkType::TableData);
+    assert!(!private.should_hash());
 }

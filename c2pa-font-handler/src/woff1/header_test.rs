@@ -22,7 +22,7 @@ fn test_woff1_header_default() {
     assert!(matches!(
         woff,
         Woff1Header {
-            signature: 0x774f_4646,
+            signature: Magic::Woff,
             flavor: 0,
             length: 0,
             numTables: 0,
@@ -49,7 +49,7 @@ fn test_woff1_header_read_exact() {
     assert!(matches!(
         woff,
         Woff1Header {
-            signature: 0x774f_4646,
+            signature: Magic::Woff,
             flavor: 0x4f54_544f,
             length: 0x0000_0000_0000_0374,
             numTables: 0x000a,
@@ -93,7 +93,7 @@ fn test_woff1_header_read_exact_too_small_buffer() {
 #[test]
 fn test_woff1_header_write() {
     let woff = Woff1Header {
-        signature: 0x774f_4646,
+        signature: Magic::Woff,
         flavor: 0x4f54_544f,
         length: 0x0000_0000_0000_0374,
         numTables: 0x000a,
@@ -122,7 +122,7 @@ fn test_woff1_header_write() {
     assert!(matches!(
         woff,
         Woff1Header {
-            signature: 0x774f_4646,
+            signature: Magic::Woff,
             flavor: 0x4f54_544f,
             length: 0x0000_0000_0000_0374,
             numTables: 0x000a,
@@ -142,9 +142,9 @@ fn test_woff1_header_write() {
 #[test]
 fn test_woff1_header_checksum() {
     let woff = Woff1Header {
-        signature: 0x0000_0000_774f_4646,
-        flavor: 0x0000_0000_4f54_544f,
-        length: 0x0000_0000_0000_0374,
+        signature: Magic::Woff,
+        flavor: 0x4f54_544f,
+        length: 0x0000_0374,
         numTables: 0x0000_000a,
         reserved: 0x0000_0000,
         totalSfntSize: 0x0000_0000_0000_0424,
@@ -174,7 +174,7 @@ fn test_woff1_header_checksum() {
 #[test]
 fn test_woff1_header_num_tables() {
     let woff = Woff1Header {
-        signature: 0,
+        signature: Magic::Woff,
         flavor: 0,
         length: 0,
         numTables: 0x000a,
