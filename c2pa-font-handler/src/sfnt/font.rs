@@ -345,6 +345,7 @@ impl ChunkReader for SfntFont {
             ChunkType::Header,
             true,
         ));
+        tracing::trace!("Header position information added");
         // Push the font directory information
         positions.push(ChunkPosition::new(
             SfntHeader::SIZE,
@@ -353,12 +354,16 @@ impl ChunkReader for SfntFont {
             ChunkType::DirectoryEntry,
             true,
         ));
+        tracing::trace!("Directory position information added");
 
         // And then go through each table entry and calculate the positions of
         // the table data.
         for entry in directory.physical_order() {
             match entry.tag() {
                 FontTag::C2PA => {
+                    tracing::trace!(
+                        "C2PA table found, adding positional information"
+                    );
                     positions.push(ChunkPosition::new(
                         entry.offset as usize,
                         entry.length as usize,
@@ -368,6 +373,7 @@ impl ChunkReader for SfntFont {
                     ));
                 }
                 FontTag::HEAD => {
+                    tracing::trace!("'head' table found, adding positional information, where excluding the checksum adjustment");
                     positions.push(ChunkPosition::new(
                         entry.offset() as usize,
                         8_usize,
@@ -391,6 +397,9 @@ impl ChunkReader for SfntFont {
                     ));
                 }
                 _ => {
+                    tracing::trace!(
+                        "Adding positional information for table data"
+                    );
                     positions.push(ChunkPosition::new(
                         entry.offset() as usize,
                         entry.length() as usize,

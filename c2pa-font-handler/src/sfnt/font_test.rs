@@ -457,3 +457,38 @@ fn test_sfnt_font_chunk_reader_with_c2pa() {
     assert_eq!(c2pa.chunk_type(), &ChunkType::TableData);
     assert!(!c2pa.should_hash());
 }
+
+#[test]
+#[tracing_test::traced_test]
+fn test_sfnt_font_chunk_reader_tracing() {
+    // Load the font data bytes
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut reader = std::io::Cursor::new(font_data);
+    // Read in the font, so we can add a C2PA record
+    let mut font = SfntFont::from_reader(&mut reader).unwrap();
+    // Build up the C2PA record
+    let record = ContentCredentialRecord::builder()
+        .with_version(0, 1)
+        .with_active_manifest_uri("https://example.com".to_string())
+        .with_content_credential(vec![0x00, 0x01, 0x02, 0x03])
+        .build()
+        .unwrap();
+    // Add it to the font stream
+    font.add_c2pa_record(record).unwrap();
+    // Write the font out to a new writer
+    let mut writer = std::io::Cursor::new(Vec::new());
+    let result = font.write(&mut writer);
+    assert!(result.is_ok());
+    // Get access to the written data
+    let written_data = writer.into_inner();
+    // And use it in a reader to read chunk positions
+    let mut new_reader = std::io::Cursor::new(&written_data);
+    let _ = SfntFont::get_chunk_positions(&mut new_reader);
+    assert!(logs_contain("Header position information added"));
+    assert!(logs_contain("Directory position information added"));
+    assert!(logs_contain(
+        "C2PA table found, adding positional information"
+    ));
+    assert!(logs_contain("'head' table found, adding positional information, where excluding the checksum adjustment"));
+    assert!(logs_contain("Adding positional information for table data"));
+}
