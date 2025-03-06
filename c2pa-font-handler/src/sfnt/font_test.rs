@@ -483,3 +483,17 @@ fn test_sfnt_font_chunk_reader_tracing() {
     assert!(logs_contain("'head' table found, adding positional information, where excluding the checksum adjustment"));
     assert!(logs_contain("Adding positional information for table data"));
 }
+
+#[test]
+fn test_sfnt_chunk_type_display() {
+    assert_eq!(
+        SfntChunkType::HeaderDirectory.to_string(),
+        "HeaderDirectory"
+    );
+    assert_eq!(SfntChunkType::TableData.to_string(), "Table Data");
+    assert_eq!(
+        SfntChunkType::ChecksumAdjustment.to_string(),
+        "Checksum Adjustment"
+    );
+    assert_eq!(SfntChunkType::C2paTableData.to_string(), "C2PA Table Data");
+}

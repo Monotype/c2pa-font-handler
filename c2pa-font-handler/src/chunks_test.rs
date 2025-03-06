@@ -37,15 +37,7 @@ impl std::fmt::Display for ChunkType {
     }
 }
 
-impl ChunkTypeTrait for ChunkType {
-    fn should_hash(&self) -> bool {
-        match self {
-            ChunkType::Header => true,
-            ChunkType::DirectoryEntry => false,
-            ChunkType::TableData => true,
-        }
-    }
-}
+impl ChunkTypeTrait for ChunkType {}
 
 #[test]
 fn test_chunk_position() {

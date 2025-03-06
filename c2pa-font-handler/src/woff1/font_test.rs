@@ -408,3 +408,15 @@ fn test_woff_font_chunk_reader_tracing() {
     assert!(!logs_contain("Metadata position information added"));
     assert!(!logs_contain("Private data position information added"));
 }
+
+#[test]
+fn test_woff_chunk_type_display() {
+    assert_eq!(format!("{}", WoffChunkType::Header), "Header");
+    assert_eq!(
+        format!("{}", WoffChunkType::DirectoryEntry),
+        "Directory Entry"
+    );
+    assert_eq!(format!("{}", WoffChunkType::TableData), "Table Data");
+    assert_eq!(format!("{}", WoffChunkType::Metadata), "Metadata");
+    assert_eq!(format!("{}", WoffChunkType::Private), "Private Data");
+}
