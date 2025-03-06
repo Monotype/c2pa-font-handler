@@ -16,6 +16,7 @@
 
 use std::{
     collections::BTreeMap,
+    fmt::Display,
     io::{Read, Seek},
 };
 
@@ -25,9 +26,13 @@ use super::{
     Table,
 };
 use crate::{
-    data::Data, error::FontIoError, tag::FontTag, utils::align_to_four, Font,
-    FontDataExactRead, FontDataRead, FontDataWrite, FontDirectory, FontHeader,
-    FontTable, MutFontDataWrite,
+    chunks::{ChunkPosition, ChunkReader, ChunkTypeTrait},
+    data::Data,
+    error::FontIoError,
+    tag::FontTag,
+    utils::align_to_four,
+    Font, FontDataExactRead, FontDataRead, FontDataWrite, FontDirectory,
+    FontDirectoryEntry, FontHeader, FontTable, MutFontDataWrite,
 };
 
 /// Implementation of an woff1 font.
@@ -207,6 +212,137 @@ impl Font for Woff1Font {
 
     fn table(&self, tag: &FontTag) -> Option<&Self::Table> {
         self.tables.get(tag)
+    }
+}
+
+/// Pseudo tag for WOFF header chunk
+const WOFF_HEADER_CHUNK_NAME: FontTag = FontTag {
+    data: *b"\x00\x00\x00W",
+};
+/// Pseudo tag for WOFF directory chunk
+const WOFF_DIRECTORY_CHUNK_NAME: FontTag = FontTag {
+    data: *b"\x00\x00\x01D",
+};
+/// Pseudo tag for WOFF metadata chunk
+const WOFF_METADATA_CHUNK_NAME: FontTag = FontTag {
+    data: *b"\x7F\x7F\x7Fm",
+};
+/// Pseudo tag for WOFF private data chunk
+const WOFF_PRIVATE_DATA_CHUNK_NAME: FontTag = FontTag {
+    data: *b"\x7F\x7F\x7FP",
+};
+
+/// WOFF chunk type
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum WoffChunkType {
+    /// Header
+    Header,
+    /// Directory entry
+    DirectoryEntry,
+    /// Table data
+    TableData,
+    /// Metadata
+    Metadata,
+    /// Private data
+    ///
+    /// # Remarks
+    /// Currently, the thinking is to put the C2PA data in the private data,
+    /// but this may change.
+    Private,
+}
+
+impl Display for WoffChunkType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WoffChunkType::Header => write!(f, "Header"),
+            WoffChunkType::DirectoryEntry => write!(f, "Directory Entry"),
+            WoffChunkType::TableData => write!(f, "Table Data"),
+            WoffChunkType::Metadata => write!(f, "Metadata"),
+            WoffChunkType::Private => write!(f, "Private Data"),
+        }
+    }
+}
+
+impl ChunkTypeTrait for WoffChunkType {
+    /// Currently this assumes the private data of a WOFF font will be excluded,
+    /// but it is still a work in progress
+    fn should_hash(&self) -> bool {
+        match self {
+            // At the moment, the private part is the only section excluded from
+            // hashing
+            WoffChunkType::Private => false,
+            _ => true,
+        }
+    }
+}
+
+// NOTE: This is still a work in progress, as support C2PA in WOFF has not be
+// fleshed out yet
+impl ChunkReader for Woff1Font {
+    type ChunkType = WoffChunkType;
+    type Error = FontIoError;
+
+    fn get_chunk_positions(
+        reader: &mut (impl Read + Seek + ?Sized),
+    ) -> Result<Vec<ChunkPosition<Self::ChunkType>>, Self::Error> {
+        let woff_header = Woff1Header::from_reader(reader)?;
+        let size_to_read =
+            woff_header.numTables as usize * Woff1DirectoryEntry::SIZE;
+        let directory = Woff1Directory::from_reader_exact(
+            reader,
+            Woff1Header::SIZE as u64,
+            size_to_read,
+        )?;
+
+        let mut positions: Vec<ChunkPosition<Self::ChunkType>> = Vec::new();
+        positions.push(ChunkPosition::new(
+            0,
+            Woff1Header::SIZE,
+            WOFF_HEADER_CHUNK_NAME.data,
+            WoffChunkType::Header,
+        ));
+        tracing::trace!("Header position information added");
+        positions.push(ChunkPosition::new(
+            Woff1Header::SIZE,
+            size_to_read,
+            WOFF_DIRECTORY_CHUNK_NAME.data,
+            WoffChunkType::DirectoryEntry,
+        ));
+        tracing::trace!("Directory position information added");
+
+        // Loop through all of the entries
+        for entry in directory.entries() {
+            positions.push(ChunkPosition::new(
+                entry.offset() as usize,
+                entry.length() as usize,
+                entry.tag().data,
+                WoffChunkType::TableData,
+            ));
+            tracing::trace!("Table data position information added");
+        }
+
+        // If we have metadata, add it
+        if woff_header.metaLength > 0 {
+            positions.push(ChunkPosition::new(
+                woff_header.metaOffset as usize,
+                woff_header.metaLength as usize,
+                WOFF_METADATA_CHUNK_NAME.data,
+                WoffChunkType::Metadata,
+            ));
+            tracing::trace!("Metadata position information added");
+        }
+
+        // If we have private data, add it
+        if woff_header.privLength > 0 {
+            positions.push(ChunkPosition::new(
+                woff_header.privOffset as usize,
+                woff_header.privLength as usize,
+                WOFF_PRIVATE_DATA_CHUNK_NAME.data,
+                WoffChunkType::Private,
+            ));
+            tracing::trace!("Private data position information added");
+        }
+        Ok(positions)
     }
 }
 

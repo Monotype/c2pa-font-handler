@@ -38,7 +38,7 @@ use crate::{
 #[allow(non_snake_case)]
 pub struct Woff1Header {
     /// The 'magic' number for WOFF1 files (i.e., 0x774F4646 as defined in <https://www.w3.org/TR/2012/REC-WOFF-20121213/>).
-    pub(crate) signature: u32,
+    pub(crate) signature: Magic,
     /// The "sfnt flavor" of the font.
     pub(crate) flavor: u32,
     /// The length of the WOFF file.
@@ -69,7 +69,7 @@ pub struct Woff1Header {
 impl Default for Woff1Header {
     fn default() -> Self {
         Self {
-            signature: Magic::Woff as u32,
+            signature: Magic::Woff,
             flavor: 0,
             length: 0,
             numTables: 0,
@@ -98,7 +98,7 @@ impl FontDataRead for Woff1Header {
         reader: &mut T,
     ) -> Result<Self, Self::Error> {
         Ok(Self {
-            signature: reader.read_u32::<BigEndian>()?,
+            signature: Magic::try_from(reader.read_u32::<BigEndian>()?)?,
             flavor: reader.read_u32::<BigEndian>()?,
             length: reader.read_u32::<BigEndian>()?,
             numTables: reader.read_u16::<BigEndian>()?,
@@ -138,7 +138,7 @@ impl FontDataWrite for Woff1Header {
         &self,
         dest: &mut TDest,
     ) -> Result<(), Self::Error> {
-        dest.write_u32::<BigEndian>(self.signature)?;
+        dest.write_u32::<BigEndian>(self.signature as u32)?;
         dest.write_u32::<BigEndian>(self.flavor)?;
         dest.write_u32::<BigEndian>(self.length)?;
         dest.write_u16::<BigEndian>(self.numTables)?;
@@ -157,7 +157,7 @@ impl FontDataWrite for Woff1Header {
 
 impl FontDataChecksum for Woff1Header {
     fn checksum(&self) -> Wrapping<u32> {
-        Wrapping(self.signature)
+        Wrapping(self.signature as u32)
             + Wrapping(self.flavor)
             + Wrapping(self.length)
             + u32_from_u16_pair(self.numTables, self.reserved)
