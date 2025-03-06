@@ -18,12 +18,12 @@ use std::io::Cursor;
 
 use super::Woff1Font;
 use crate::{
-    chunks::{ChunkReader, ChunkType},
+    chunks::{ChunkReader, ChunkTypeTrait},
     data::Data,
     error::FontIoError,
     magic::Magic,
     tag::FontTag,
-    woff1::header::Woff1Header,
+    woff1::{font::WoffChunkType, header::Woff1Header},
     Font, FontDataRead, FontDirectory, FontTable, MutFontDataWrite,
 };
 
@@ -332,27 +332,27 @@ fn test_woff_font_chunk_reader_valid() {
     assert!(result.is_ok());
     let mut positions = result.unwrap();
     // Get the first position, should be the header
-    let header = positions.get(0).unwrap();
+    let header = positions.first().unwrap();
     assert_eq!(header.offset(), 0);
     assert_eq!(header.length(), Woff1Header::SIZE);
     assert_eq!(header.name(), b"\x00\x00\x00W");
-    assert_eq!(header.chunk_type(), &ChunkType::Header);
-    assert!(header.should_hash());
+    assert_eq!(header.chunk_type(), &WoffChunkType::Header);
+    assert!(header.chunk_type().should_hash());
     positions.remove(0);
 
     // Then the 2nd one should be the directory
-    let directory = positions.get(0).unwrap();
+    let directory = positions.first().unwrap();
     assert_eq!(directory.offset(), Woff1Header::SIZE);
     assert_eq!(directory.length(), 200);
     assert_eq!(directory.name(), b"\x00\x00\x01D");
-    assert_eq!(directory.chunk_type(), &ChunkType::DirectoryEntry);
-    assert!(directory.should_hash());
+    assert_eq!(directory.chunk_type(), &WoffChunkType::DirectoryEntry);
+    assert!(directory.chunk_type().should_hash());
     positions.remove(0);
 
     // Other positions should be included
     for position in positions {
-        assert_eq!(position.chunk_type(), &ChunkType::TableData);
-        assert!(position.should_hash());
+        assert_eq!(position.chunk_type(), &WoffChunkType::TableData);
+        assert!(position.chunk_type().should_hash());
     }
 }
 
@@ -382,8 +382,8 @@ fn test_woff_font_chunk_reader_metadata_private() {
         .unwrap();
     assert_eq!(metadata.offset(), 884);
     assert_eq!(metadata.length(), 4);
-    assert_eq!(metadata.chunk_type(), &ChunkType::TableData);
-    assert!(metadata.should_hash());
+    assert_eq!(metadata.chunk_type(), &WoffChunkType::Metadata);
+    assert!(metadata.chunk_type().should_hash());
     // And should be able to find the private data, which should NOT be hashed??
     let private = positions
         .iter()
@@ -391,8 +391,8 @@ fn test_woff_font_chunk_reader_metadata_private() {
         .unwrap();
     assert_eq!(private.offset(), 888);
     assert_eq!(private.length(), 4);
-    assert_eq!(private.chunk_type(), &ChunkType::TableData);
-    assert!(!private.should_hash());
+    assert_eq!(private.chunk_type(), &WoffChunkType::Private);
+    assert!(!private.chunk_type().should_hash());
 }
 
 #[test]

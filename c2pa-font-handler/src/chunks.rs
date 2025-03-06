@@ -14,43 +14,40 @@
 
 //! Definitions of chunks for various font softwares
 
-use std::io::{Read, Seek};
+use std::{
+    fmt::Display,
+    io::{Read, Seek},
+};
 
 /// A trait for reading data chunks.
 pub trait ChunkReader {
     /// The error type for reading data chunks.
     type Error;
+    /// The type of chunk.
+    type ChunkType: ChunkTypeTrait;
 
     /// Get the positions of all chunks in the data.
     fn get_chunk_positions(
         reader: &mut (impl Read + Seek + ?Sized),
-    ) -> Result<Vec<ChunkPosition>, Self::Error>;
+    ) -> Result<Vec<ChunkPosition<Self::ChunkType>>, Self::Error>;
 }
 
-/// A chunk type
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum ChunkType {
-    /// Header
-    Header,
-    /// Directory entry
-    DirectoryEntry,
-    /// Table data
-    TableData,
-}
-
-impl std::fmt::Display for ChunkType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ChunkType::Header => write!(f, "Header"),
-            ChunkType::DirectoryEntry => write!(f, "Directory Entry"),
-            ChunkType::TableData => write!(f, "Table Data"),
-        }
+/// Defines a chunk type
+pub trait ChunkTypeTrait:
+    Clone + std::fmt::Debug + Eq + PartialEq + Display
+{
+    /// Whether the chunk should be hashed
+    ///
+    /// # Remarks
+    /// The default is to hash the chunk
+    fn should_hash(&self) -> bool {
+        true
     }
 }
 
 /// A chunk position
 #[derive(Debug, Eq, PartialEq)]
-pub struct ChunkPosition {
+pub struct ChunkPosition<T: ChunkTypeTrait> {
     /// Offset to the start of the chunk
     offset: usize,
     /// Length of the chunk
@@ -58,26 +55,22 @@ pub struct ChunkPosition {
     /// Name, or tag, of the chunk
     name: [u8; 4],
     /// Type of chunk
-    chunk_type: ChunkType,
-    /// Whether the chunk should be hashed
-    should_hash: bool,
+    chunk_type: T,
 }
 
-impl ChunkPosition {
+impl<T: ChunkTypeTrait> ChunkPosition<T> {
     /// Create a new chunk position
     pub fn new(
         offset: usize,
         length: usize,
         name: [u8; 4],
-        chunk_type: ChunkType,
-        should_hash: bool,
+        chunk_type: T,
     ) -> Self {
         Self {
             offset,
             length,
             name,
             chunk_type,
-            should_hash,
         }
     }
 
@@ -102,26 +95,20 @@ impl ChunkPosition {
     }
 
     /// Get the type of the chunk
-    pub fn chunk_type(&self) -> &ChunkType {
+    pub fn chunk_type(&self) -> &T {
         &self.chunk_type
-    }
-
-    /// Should the chunk be hashed
-    pub fn should_hash(&self) -> bool {
-        self.should_hash
     }
 }
 
-impl std::fmt::Display for ChunkPosition {
+impl<T: ChunkTypeTrait> std::fmt::Display for ChunkPosition<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Chunk({}): {} at offset {} with length {}; hash: {}",
+            "Chunk({}): {} at offset {} with length {}",
             self.chunk_type,
             String::from_utf8_lossy(&self.name),
             self.offset,
             self.length,
-            self.should_hash,
         )
     }
 }

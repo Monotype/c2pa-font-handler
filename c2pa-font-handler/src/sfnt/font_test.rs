@@ -17,6 +17,7 @@
 use super::*;
 use crate::{
     c2pa::{ContentCredentialRecord, UpdateContentCredentialRecord},
+    chunks::ChunkTypeTrait,
     data::Data,
     error::FontIoError,
 };
@@ -391,21 +392,12 @@ fn test_sfnt_font_chunk_reader_valid() {
     assert!(result.is_ok());
     let mut positions = result.unwrap();
     // Get the first position, should be the header
-    let header = positions.get(0).unwrap();
+    let header = positions.first().unwrap();
     assert_eq!(header.offset(), 0);
-    assert_eq!(header.length(), 12);
+    assert_eq!(header.length(), 188);
     assert_eq!(header.name(), b" HDR");
-    assert_eq!(header.chunk_type(), &ChunkType::Header);
-    assert!(header.should_hash());
-    positions.remove(0);
-
-    // Then the 2nd one should be the directory
-    let directory = positions.get(0).unwrap();
-    assert_eq!(directory.offset(), 12);
-    assert_eq!(directory.length(), 176);
-    assert_eq!(directory.name(), b" DIR");
-    assert_eq!(directory.chunk_type(), &ChunkType::DirectoryEntry);
-    assert!(directory.should_hash());
+    assert_eq!(header.chunk_type(), &SfntChunkType::HeaderDirectory);
+    assert!(!header.chunk_type().should_hash());
     positions.remove(0);
 
     // Find the specialized hea1 table, which contains the exclusion of the
@@ -413,14 +405,14 @@ fn test_sfnt_font_chunk_reader_valid() {
     let head1 = positions.iter().find(|p| p.name() == b"hea1").unwrap();
     assert_eq!(head1.offset(), 196);
     assert_eq!(head1.length(), 4);
-    assert_eq!(head1.chunk_type(), &ChunkType::TableData);
-    assert!(!head1.should_hash());
+    assert_eq!(head1.chunk_type(), &SfntChunkType::ChecksumAdjustment);
+    assert!(!head1.chunk_type().should_hash());
 
     // All the other positions should be included
     positions.retain(|p| p.name() != b"hea1");
     for position in positions {
-        assert_eq!(position.chunk_type(), &ChunkType::TableData);
-        assert!(position.should_hash());
+        assert_eq!(position.chunk_type(), &SfntChunkType::TableData);
+        assert!(position.chunk_type().should_hash());
     }
 }
 
@@ -454,8 +446,8 @@ fn test_sfnt_font_chunk_reader_with_c2pa() {
     let c2pa = positions.iter().find(|p| p.name() == b"C2PA").unwrap();
     assert_eq!(c2pa.offset(), 1388);
     assert_eq!(c2pa.length(), 43);
-    assert_eq!(c2pa.chunk_type(), &ChunkType::TableData);
-    assert!(!c2pa.should_hash());
+    assert_eq!(c2pa.chunk_type(), &SfntChunkType::C2paTableData);
+    assert!(c2pa.chunk_type().should_hash());
 }
 
 #[test]
@@ -484,8 +476,7 @@ fn test_sfnt_font_chunk_reader_tracing() {
     // And use it in a reader to read chunk positions
     let mut new_reader = std::io::Cursor::new(&written_data);
     let _ = SfntFont::get_chunk_positions(&mut new_reader);
-    assert!(logs_contain("Header position information added"));
-    assert!(logs_contain("Directory position information added"));
+    assert!(logs_contain("HeaderDirectory position information added"));
     assert!(logs_contain(
         "C2PA table found, adding positional information"
     ));

@@ -16,9 +16,40 @@
 
 use super::*;
 
+/// A chunk type
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ChunkType {
+    /// Header
+    Header,
+    /// Directory entry
+    DirectoryEntry,
+    /// Table data
+    TableData,
+}
+
+impl std::fmt::Display for ChunkType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChunkType::Header => write!(f, "Header"),
+            ChunkType::DirectoryEntry => write!(f, "Directory Entry"),
+            ChunkType::TableData => write!(f, "Table Data"),
+        }
+    }
+}
+
+impl ChunkTypeTrait for ChunkType {
+    fn should_hash(&self) -> bool {
+        match self {
+            ChunkType::Header => true,
+            ChunkType::DirectoryEntry => false,
+            ChunkType::TableData => true,
+        }
+    }
+}
+
 #[test]
 fn test_chunk_position() {
-    let chunk = ChunkPosition::new(0, 4, *b"head", ChunkType::Header, true);
+    let chunk = ChunkPosition::new(0, 4, *b"head", ChunkType::Header);
 
     assert_eq!(chunk.offset(), 0);
     assert_eq!(chunk.length(), 4);
@@ -27,7 +58,7 @@ fn test_chunk_position() {
     assert!(name_result.is_ok());
     assert_eq!(name_result.unwrap(), "head");
     assert_eq!(chunk.chunk_type(), &ChunkType::Header);
-    assert_eq!(chunk.should_hash(), true);
+    assert!(chunk.chunk_type().should_hash());
 }
 
 #[test]
@@ -37,12 +68,11 @@ fn test_chunk_position_display() {
         length: 4,
         name: *b"head",
         chunk_type: ChunkType::Header,
-        should_hash: true,
     };
 
     assert_eq!(
         chunk.to_string(),
-        "Chunk(Header): head at offset 0 with length 4; hash: true"
+        "Chunk(Header): head at offset 0 with length 4"
     );
 }
 
