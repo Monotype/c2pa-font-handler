@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ use super::error::FontIoError;
 /// Note that Embedded OpenType and MicroType Express formats cannot be detected
 /// with a simple magic-number sniff. Conceivably, EOT could be dealt with as a
 /// variation on SFNT, but MTX will needs more exotic handling.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Magic {
     /// 'OTTO' - OpenType
     OpenType = 0x4f54544f,
