@@ -6,6 +6,12 @@ This project adheres to [Semantic Versioning](https://semver.org), except that â
 
 Do not manually edit this file. It will be automatically updated when a new release is published.
 
+## 0.4.0
+
+07 March 2025
+
+* C2PA-629: (MINOR) Adds the ability to read chunks and get their positions for fonts ([#25](https://github.com/Monotype/c2pa-font-handler/pull/25))
+
 ## 0.3.1
 
 04 March 2025
