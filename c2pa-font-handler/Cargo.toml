@@ -25,7 +25,9 @@ license = "Apache-2.0"
 
 [features]
 default = []
-woff = ["dep:flate2"]
+flate = ["dep:flate2"]
+compression = ["flate"]
+woff = [ "compression" ]
 
 [dependencies]
 anyhow.workspace = true
