@@ -21,6 +21,7 @@
     "byteorder",
     "cdef",
     "cksum",
+    "decompressor",
     "DSIG",
     "flate",
     "fullword",
