@@ -50,6 +50,8 @@ use tag::FontTag;
 
 pub mod c2pa;
 pub mod chunks;
+#[cfg(feature = "compression")]
+pub mod compression;
 pub mod data;
 pub mod error;
 pub(crate) mod magic;
