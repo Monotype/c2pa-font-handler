@@ -16,7 +16,7 @@
 //!
 //! Currently the only supported compression is Zlib.
 
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Write};
 #[cfg(feature = "flate")]
 mod flate2;
 #[cfg(feature = "flate")]
@@ -45,7 +45,7 @@ pub trait Compressor {
     type Error: Into<CompressionError>;
 
     /// The type of writer used by the compressor.
-    type Stream: Write + Read + Seek;
+    type Stream: Write + Read;
 
     /// The type of encoder used by the compressor.
     type Encoder: Encoder<Error = Self::Error, Stream = Self::Stream>;
@@ -64,7 +64,7 @@ pub trait Decompressor {
     type Error: Into<CompressionError>;
 
     /// The type of writer used by the decompressor.
-    type Stream: Write + Read + Seek;
+    type Stream: Write + Read;
 
     /// The type of decoder used by the decompressor.
     type Decoder: Decoder<Error = Self::Error, Stream = Self::Stream>;
@@ -83,7 +83,7 @@ pub trait Encoder: Write {
     type Error: Into<CompressionError>;
 
     /// The type of writer used by the encoder.
-    type Stream: Write + Read + Seek;
+    type Stream: Write + Read;
 }
 
 /// Describes a decoder to use during decompression.
@@ -92,5 +92,5 @@ pub trait Decoder: Write + Read {
     type Error: Into<CompressionError>;
 
     /// The type of writer used by the decoder.
-    type Stream: Write + Read + Seek;
+    type Stream: Write + Read;
 }
