@@ -40,18 +40,18 @@
 //! assert_eq!(data, original.get_ref().as_slice());
 //! ```
 
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Write};
 
 use super::{CompressionError, Compressor, Decoder, Decompressor, Encoder};
 
 // Implementation of the Encoder trait for flate2::write::ZlibEncoder
-impl<T: Write + Read + Seek> Encoder for flate2::write::ZlibEncoder<T> {
+impl<T: Write + Read> Encoder for flate2::write::ZlibEncoder<T> {
     type Error = CompressionError;
     type Stream = T;
 }
 
 // Implementation of the Decoder trait for flate2::write::ZlibDecoder
-impl<T: Write + Read + Seek> Decoder for flate2::write::ZlibDecoder<T> {
+impl<T: Write + Read> Decoder for flate2::write::ZlibDecoder<T> {
     type Error = CompressionError;
     type Stream = T;
 }
@@ -60,7 +60,7 @@ impl<T: Write + Read + Seek> Decoder for flate2::write::ZlibDecoder<T> {
 #[derive(Default)]
 pub struct ZlibCompression<T>
 where
-    T: Write + Read + Seek,
+    T: Write + Read,
 {
     stream_marker: std::marker::PhantomData<T>,
     compression_settings: flate2::Compression,
@@ -68,7 +68,7 @@ where
 
 impl<T> ZlibCompression<T>
 where
-    T: Write + Read + Seek,
+    T: Write + Read,
 {
     /// Creates a new ZlibCompressor with the specified compression settings.
     pub fn new(compression_settings: flate2::Compression) -> Self {
@@ -79,7 +79,7 @@ where
     }
 }
 
-impl<T: Write + Read + Seek> Compressor for ZlibCompression<T> {
+impl<T: Write + Read> Compressor for ZlibCompression<T> {
     type Encoder = flate2::write::ZlibEncoder<T>;
     type Error = CompressionError;
     type Stream = T;
@@ -92,13 +92,12 @@ impl<T: Write + Read + Seek> Compressor for ZlibCompression<T> {
         let mut encoder =
             Self::Encoder::new(destination, self.compression_settings);
         encoder.write_all(data.as_ref())?;
-        let mut compressed_data = encoder.finish()?;
-        compressed_data.seek(std::io::SeekFrom::Start(0))?;
+        let compressed_data = encoder.finish()?;
         Ok(compressed_data)
     }
 }
 
-impl<T: Write + Read + Seek> Decompressor for ZlibCompression<T> {
+impl<T: Write + Read> Decompressor for ZlibCompression<T> {
     type Decoder = flate2::write::ZlibDecoder<T>;
     type Error = CompressionError;
     type Stream = T;
@@ -111,8 +110,7 @@ impl<T: Write + Read + Seek> Decompressor for ZlibCompression<T> {
         let mut decoder = Self::Decoder::new(destination);
         let mut data = data;
         decoder.write_all(data.as_mut())?;
-        let mut decompressed_data = decoder.finish()?;
-        decompressed_data.seek(std::io::SeekFrom::Start(0))?;
+        let decompressed_data = decoder.finish()?;
         Ok(decompressed_data)
     }
 }
