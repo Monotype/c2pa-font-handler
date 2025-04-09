@@ -25,12 +25,15 @@ license = "Apache-2.0"
 
 [features]
 default = []
-woff = []
+flate = ["dep:flate2"]
+compression = ["flate"]
+woff = [ "compression" ]
 
 [dependencies]
 anyhow.workspace = true
 byteorder.workspace = true
 bytes.workspace = true
+flate2 = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
