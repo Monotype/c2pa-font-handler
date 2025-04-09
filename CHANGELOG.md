@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org), except that â
 
 Do not manually edit this file. It will be automatically updated when a new release is published.
 
+## 0.4.1
+
+09 April 2025
+
+* Workflow failure - dev - d08b9c153f71ae291e5ac0a0f0319bfff1b32139 ([#30](https://github.com/Monotype/c2pa-font-handler/pull/30))
+* C2PA-275: Compression support for woff ([#29](https://github.com/Monotype/c2pa-font-handler/pull/29))
+
 ## 0.4.0
 
 07 March 2025
