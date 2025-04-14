@@ -144,6 +144,17 @@ impl FontDataChecksum for TableC2PARaw {
 }
 
 impl FontTable for TableC2PARaw {
+    fn data(&self) -> &[u8] {
+        // This is a packed struct, so we can just return a slice of the whole
+        // struct.
+        unsafe {
+            std::slice::from_raw_parts(
+                self as *const Self as *const u8,
+                size_of::<Self>(),
+            )
+        }
+    }
+
     fn len(&self) -> u32 {
         Self::MINIMUM_SIZE as u32
     }
@@ -274,6 +285,17 @@ impl FontDataChecksum for TableC2PA {
 }
 
 impl FontTable for TableC2PA {
+    fn data(&self) -> &[u8] {
+        // This is a packed struct, so we can just return a slice of the whole
+        // struct.
+        unsafe {
+            std::slice::from_raw_parts(
+                self as *const Self as *const u8,
+                size_of::<Self>(),
+            )
+        }
+    }
+
     fn len(&self) -> u32 {
         // The length of the table is the length of the raw table plus the
         // length of the active manifest URI and the manifest store.

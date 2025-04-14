@@ -39,11 +39,6 @@ impl Data {
         Data { data }
     }
 
-    /// Get the associated data
-    pub fn data(&self) -> &[u8] {
-        &self.data
-    }
-
     /// Set the associated data
     pub fn set_data(&mut self, data: Vec<u8>) {
         self.data = data;
@@ -91,6 +86,10 @@ impl FontDataChecksum for Data {
 }
 
 impl FontTable for Data {
+    fn data(&self) -> &[u8] {
+        &self.data
+    }
+
     fn len(&self) -> u32 {
         self.data.len() as u32
     }
