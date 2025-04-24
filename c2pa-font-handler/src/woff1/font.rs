@@ -23,7 +23,7 @@ use std::{
 use super::{
     directory::{Woff1Directory, Woff1DirectoryEntry},
     header::Woff1Header,
-    Table,
+    table::NamedTable,
 };
 use crate::{
     chunks::{ChunkPosition, ChunkReader, ChunkTypeTrait},
@@ -31,15 +31,15 @@ use crate::{
     error::FontIoError,
     tag::FontTag,
     utils::align_to_four,
-    Font, FontDataExactRead, FontDataRead, FontDataWrite, FontDirectory,
-    FontDirectoryEntry, FontHeader, FontTable, MutFontDataWrite,
+    Font, FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
+    FontDirectory, FontDirectoryEntry, FontHeader, FontTable, MutFontDataWrite,
 };
 
 /// Implementation of an woff1 font.
 pub struct Woff1Font {
     pub(crate) header: Woff1Header,
     pub(crate) directory: Woff1Directory,
-    pub(crate) tables: BTreeMap<FontTag, Table>,
+    pub(crate) tables: BTreeMap<FontTag, NamedTable>,
     pub(crate) metadata: Option<Data>,
     pub(crate) private_data: Option<Data>,
 }
@@ -64,13 +64,12 @@ impl FontDataRead for Woff1Font {
         // And setup to read the contents of the tables
         let mut tables = BTreeMap::new();
         for entry in directory.entries() {
-            // Get the 4-byte aligned length of the table
-            let aligned_length = align_to_four(entry.compLength) as usize;
             // Read in the table data
-            let table = Data::from_reader_exact(
+            let table = NamedTable::from_reader_exact(
+                &entry.tag(),
                 reader,
                 entry.offset as u64,
-                aligned_length,
+                entry.length() as usize,
             )?;
             tables.insert(entry.tag, table);
         }
@@ -154,6 +153,24 @@ impl MutFontDataWrite for Woff1Font {
             }
         });
 
+        if let Some(c2pa) = self.tables.get(&FontTag::C2PA) {
+            if !self
+                .directory
+                .entries()
+                .iter()
+                .any(|entry| entry.tag == FontTag::C2PA)
+            {
+                let neo_entry = Woff1DirectoryEntry {
+                    tag: FontTag::C2PA,
+                    offset: running_offset,
+                    compLength: c2pa.len(),
+                    origLength: c2pa.len(),
+                    origChecksum: c2pa.checksum().0,
+                };
+                neo_directory.add_entry(neo_entry);
+                running_offset += align_to_four(c2pa.len());
+            }
+        }
         // Sort the new directory by tag
         neo_directory.sort_entries(|entry| entry.tag);
 
@@ -196,7 +213,7 @@ impl MutFontDataWrite for Woff1Font {
 impl Font for Woff1Font {
     type Directory = Woff1Directory;
     type Header = Woff1Header;
-    type Table = Table;
+    type Table = NamedTable;
 
     fn header(&self) -> &Self::Header {
         &self.header
