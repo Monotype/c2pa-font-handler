@@ -15,10 +15,12 @@
 //! woff1 font.
 
 use std::{
-    collections::BTreeMap,
+    collections::{btree_map::Entry, BTreeMap},
     fmt::Display,
     io::{Read, Seek},
 };
+
+use flate2::Compression;
 
 use super::{
     directory::{Woff1Directory, Woff1DirectoryEntry},
@@ -26,9 +28,12 @@ use super::{
     table::NamedTable,
 };
 use crate::{
+    c2pa::C2PASupport,
     chunks::{ChunkPosition, ChunkReader, ChunkTypeTrait},
+    compression::{Decompressor, ZlibCompression},
     data::Data,
     error::FontIoError,
+    sfnt::table::TableC2PA,
     tag::FontTag,
     utils::align_to_four,
     Font, FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
@@ -360,6 +365,108 @@ impl ChunkReader for Woff1Font {
             tracing::trace!("Private data position information added");
         }
         Ok(positions)
+    }
+}
+
+impl C2PASupport for Woff1Font {
+    type Error = FontIoError;
+
+    fn add_c2pa_record(
+        &mut self,
+        record: crate::c2pa::ContentCredentialRecord,
+    ) -> Result<(), Self::Error> {
+        // Look for an entry in the table
+        match self.tables.entry(FontTag::C2PA) {
+            // If we do not have an entry, we are good to go to insert the
+            // record
+            Entry::Vacant(entry) => {
+                // If we don't have an entry, create one
+                let table = TableC2PA {
+                    major_version: record.major_version(),
+                    minor_version: record.minor_version(),
+                    active_manifest_uri: record
+                        .active_manifest_uri()
+                        .map(|s| s.to_owned()),
+                    manifest_store: record
+                        .content_credential()
+                        .map(|s| s.to_vec()),
+                };
+                entry.insert(NamedTable::C2PA(table));
+                Ok(())
+            }
+            // Otherwise, we are in an error state
+            Entry::Occupied(_) => {
+                // If we do have an entry, return an error
+                Err(FontIoError::ContentCredentialAlreadyExists)
+            }
+        }
+    }
+
+    fn has_c2pa(&self) -> bool {
+        self.tables.contains_key(&FontTag::C2PA)
+    }
+
+    fn get_c2pa(
+        self,
+    ) -> Result<Option<crate::c2pa::ContentCredentialRecord>, Self::Error> {
+        // We will need to read in the C2PA table, it could be compressed, so we
+        // will need to look at the directory entry to see if it is
+        // compressed or not. If it is compressed, we will need to
+        // decompress it before we can read it.
+        let mut tables = self.tables;
+        if let Some(NamedTable::C2PA(table)) = tables.get_mut(&FontTag::C2PA) {
+            if let Some(c2pa_entry) = self
+                .directory
+                .entries()
+                .iter()
+                .find(|entry| entry.tag() == FontTag::C2PA)
+            {
+                // If the entry is compressed, we need to decompress it
+                if c2pa_entry.compLength != c2pa_entry.origLength {
+                    let decompressed_data = std::io::Cursor::new(vec![
+                            0;
+                            c2pa_entry.origLength
+                                as usize
+                        ]);
+                    let decompressor =
+                        ZlibCompression::new(Compression::default());
+                    let table: TableC2PA = table.clone();
+                    let mut decompressed_data = decompressor
+                        .decompress(
+                            &mut table.data().to_vec(),
+                            decompressed_data,
+                        )
+                        .unwrap();
+                    // Create a new table with the decompressed data
+                    let table = TableC2PA::from_reader_exact(
+                        &mut decompressed_data,
+                        0,
+                        c2pa_entry.origLength as usize,
+                    )?;
+                    let record =
+                        crate::c2pa::ContentCredentialRecord::try_from(&table)?;
+                    return Ok(Some(record));
+                }
+            }
+            // If we have a C2PA table, we can read it
+
+            let table: &TableC2PA = &*table;
+            let record = crate::c2pa::ContentCredentialRecord::try_from(table)?;
+            Ok(Some(record))
+        } else {
+            // If we don't have a C2PA table, return None
+            Ok(None)
+        }
+    }
+
+    fn remove_c2pa_record(&mut self) -> Result<(), Self::Error> {
+        match self.tables.entry(FontTag::C2PA) {
+            Entry::Vacant(_) => Err(FontIoError::ContentCredentialNotFound),
+            Entry::Occupied(entry) => {
+                entry.remove();
+                Ok(())
+            }
+        }
     }
 }
 
