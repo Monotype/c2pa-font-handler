@@ -288,7 +288,6 @@ fn test_woff_font_chunk_reader_bad_header() {
     let result = Woff1Font::get_chunk_positions(&mut reader);
     assert!(result.is_err());
     let err = result.err().unwrap();
-    println!("{:?}", err);
     // Since we didn't do an appropriate magic for the font, we should get an
     // unknown magic error.
     assert!(matches!(err, FontIoError::UnknownMagic(_)));
@@ -318,10 +317,9 @@ fn test_woff_font_chunk_reader_bad_directory() {
     let result = Woff1Font::get_chunk_positions(&mut reader);
     assert!(result.is_err());
     let err = result.err().unwrap();
-    println!("{:?}", err);
     // Should be a "failed to fill whole buffer" error
     assert!(matches!(err, FontIoError::IoError(_)));
-    assert_eq!(format!("{}", err), "failed to fill whole buffer");
+    assert_eq!(format!("{err}"), "failed to fill whole buffer");
 }
 
 #[test]

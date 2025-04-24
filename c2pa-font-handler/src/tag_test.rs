@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -56,11 +56,11 @@ fn test_tag_write() {
 #[test]
 fn test_tag_display() {
     let tag = FontTag::new(*b"bb2c");
-    assert_eq!(format!("{}", tag), "bb2c");
+    assert_eq!(format!("{tag}"), "bb2c");
 }
 
 #[test]
 fn test_tag_debug() {
     let tag = FontTag::new(*b"bb2c");
-    assert_eq!(format!("{:?}", tag), "FontTag(bb2c)");
+    assert_eq!(format!("{tag:?}"), "FontTag(bb2c)");
 }
