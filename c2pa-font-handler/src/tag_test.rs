@@ -56,11 +56,11 @@ fn test_tag_write() {
 #[test]
 fn test_tag_display() {
     let tag = FontTag::new(*b"bb2c");
-    assert_eq!(format!("{}", tag), "bb2c");
+    assert_eq!(format!("{tag}"), "bb2c");
 }
 
 #[test]
 fn test_tag_debug() {
     let tag = FontTag::new(*b"bb2c");
-    assert_eq!(format!("{:?}", tag), "FontTag(bb2c)");
+    assert_eq!(format!("{tag:?}"), "FontTag(bb2c)");
 }

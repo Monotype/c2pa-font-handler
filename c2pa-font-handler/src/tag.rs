@@ -95,7 +95,7 @@ impl std::fmt::Display for FontTag {
 
 impl std::fmt::Debug for FontTag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "FontTag({})", self)
+        write!(f, "FontTag({self})")
     }
 }
 

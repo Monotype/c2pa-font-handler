@@ -288,7 +288,7 @@ fn test_table_header_debug_fmt() {
         indexToLocFormat: 0x0b20,
         glyphDataFormat: 0x023d,
     };
-    let debug_fmt = format!("{:?}", table);
+    let debug_fmt = format!("{table:?}");
     let expected = "TableHead { majorVersion: 1, minorVersion: 0, fontRevision: 305419896, checksumAdjustment: 2596069104, magicNumber: 1594834165, flags: 4660, unitsPerEm: 240, created: 281474976710656, modified: 1236950581248, xMin: 0, yMin: 9, xMax: 2304, yMax: 2560, macStyle: 4660, lowestRecPPEM: 2546, fontDirectionHint: 1799, indexToLocFormat: 2848, glyphDataFormat: 573 }";
     assert_eq!(debug_fmt, expected);
 }
