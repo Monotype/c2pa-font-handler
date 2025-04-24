@@ -32,7 +32,6 @@ fn test_record_builder() {
         .with_active_manifest_uri("http://example.com/manifest".to_owned())
         .with_content_credential(vec![1, 2, 3, 4])
         .build();
-    println!("{:?}", result);
     assert!(result.is_ok());
     let record = result.unwrap();
     if let ContentCredentialRecord {

@@ -59,7 +59,6 @@ fn test_from_reader_table_c2pa_raw_not_enough_data() {
     let result = TableC2PARaw::from_reader(&mut reader);
     assert!(result.is_err());
     let error = result.err().unwrap();
-    println!("{:?}", error);
     assert!(matches!(error, FontIoError::IoError(_)));
 }
 
@@ -198,7 +197,6 @@ fn test_table_c2pa_from_reader_invalid_manifest_offset() {
     let result = TableC2PA::from_reader_exact(&mut reader, 0, len);
     assert!(result.is_err());
     let error = result.err().unwrap();
-    println!("{:?}", error);
     assert!(matches!(
         error,
         FontIoError::LoadTableTruncated(FontTag::C2PA)
@@ -610,6 +608,5 @@ fn test_table_c2pa_read_exact_with_invalid_uri_bytes() {
     let result = TableC2PA::from_reader_exact(&mut reader, 0, 24);
     assert!(result.is_err());
     let error = result.err().unwrap();
-    println!("{:?}", error);
     assert!(matches!(error, FontIoError::StringFromUtf8(_)));
 }
