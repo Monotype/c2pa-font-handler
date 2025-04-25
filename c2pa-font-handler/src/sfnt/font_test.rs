@@ -81,7 +81,7 @@ fn test_load_font_with_wrong_number_of_directory_entries() {
     let result = SfntFont::from_reader(&mut reader);
     assert!(result.is_err());
     let err = result.err().unwrap();
-    println!("{:?}", err);
+    println!("{err:?}");
     assert!(matches!(err, FontIoError::IoError(_)));
 }
 
@@ -381,7 +381,7 @@ fn test_sfnt_font_chunk_reader_bad_directory() {
     let err = result.err().unwrap();
     // Should be a "failed to fill whole buffer" error
     assert!(matches!(err, FontIoError::IoError(_)));
-    assert_eq!(format!("{}", err), "failed to fill whole buffer");
+    assert_eq!(format!("{err}"), "failed to fill whole buffer");
 }
 
 #[test]

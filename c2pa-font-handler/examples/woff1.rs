@@ -43,7 +43,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let font = Woff1Font::from_reader(&mut input_file)?;
     println!("{:#?}", font.header());
     for table in font.directory().entries() {
-        println!("{:#?}", table);
+        println!("{table:#?}");
     }
     Ok(())
 }
