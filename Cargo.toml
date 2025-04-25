@@ -22,7 +22,7 @@ members = ["c2pa-font-handler"]
 exclude = []
 
 [workspace.package]
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Michael Brogdon <Michael.Brogdon@monotype.com>"]
 description = "C2PA Font Handler (or codec) to be used with the c2pa-rs SDK."
 
