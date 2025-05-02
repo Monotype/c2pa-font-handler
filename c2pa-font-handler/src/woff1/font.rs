@@ -20,8 +20,6 @@ use std::{
     io::{Read, Seek},
 };
 
-use flate2::Compression;
-
 use super::{
     directory::{Woff1Directory, Woff1DirectoryEntry},
     header::Woff1Header,
@@ -30,7 +28,6 @@ use super::{
 use crate::{
     c2pa::C2PASupport,
     chunks::{ChunkPosition, ChunkReader, ChunkTypeTrait},
-    compression::{Decompressor, ZlibCompression},
     data::Data,
     error::FontIoError,
     sfnt::table::TableC2PA,
@@ -68,6 +65,11 @@ impl FontDataRead for Woff1Font {
         )?;
         // And setup to read the contents of the tables
         let mut tables = BTreeMap::new();
+
+        // TODO: Create a new decompression/compression type/stream that takes
+        // the reader this will be responsible for decompressing the
+        // data as it is read in
+
         for entry in directory.entries() {
             // Read in the table data
             let table = NamedTable::from_reader_exact(
@@ -157,6 +159,14 @@ impl MutFontDataWrite for Woff1Font {
                 running_offset += align_to_four(table.len());
             }
         });
+
+        // TODO: Create a compressor to check if compressing the C2PA table
+        // is worth it. Currently, we are not compressing it, but we may want to
+        // in the future. For now, we will just add it to the directory as is.
+
+        // TODO: Need a wrapper stream of a stream, since Zlib takes ownership
+        // of the stream and we need to pass it to the compressor. This
+        // will be a work in progress.
 
         if let Some(c2pa) = self.tables.get(&FontTag::C2PA) {
             if !self
@@ -415,41 +425,6 @@ impl C2PASupport for Woff1Font {
         // decompress it before we can read it.
         let mut tables = self.tables;
         if let Some(NamedTable::C2PA(table)) = tables.get_mut(&FontTag::C2PA) {
-            if let Some(c2pa_entry) = self
-                .directory
-                .entries()
-                .iter()
-                .find(|entry| entry.tag() == FontTag::C2PA)
-            {
-                // If the entry is compressed, we need to decompress it
-                if c2pa_entry.compLength != c2pa_entry.origLength {
-                    let decompressed_data = std::io::Cursor::new(vec![
-                            0;
-                            c2pa_entry.origLength
-                                as usize
-                        ]);
-                    let decompressor =
-                        ZlibCompression::new(Compression::default());
-                    let table: TableC2PA = table.clone();
-                    let mut decompressed_data = decompressor
-                        .decompress(
-                            &mut table.data().to_vec(),
-                            decompressed_data,
-                        )
-                        .unwrap();
-                    // Create a new table with the decompressed data
-                    let table = TableC2PA::from_reader_exact(
-                        &mut decompressed_data,
-                        0,
-                        c2pa_entry.origLength as usize,
-                    )?;
-                    let record =
-                        crate::c2pa::ContentCredentialRecord::try_from(&table)?;
-                    return Ok(Some(record));
-                }
-            }
-            // If we have a C2PA table, we can read it
-
             let table: &TableC2PA = &*table;
             let record = crate::c2pa::ContentCredentialRecord::try_from(table)?;
             Ok(Some(record))

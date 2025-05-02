@@ -13,50 +13,48 @@
 //  limitations under the License.
 
 //! Tests for the flate2 compression support
-
 use std::io::Cursor;
-
-use flate2::Compression;
 
 use super::*;
 
 #[test]
-fn compress() {
+fn round_trip_compress_decompress() {
     let data = b"Hello, world!";
-    // And use it to build a flate2 compressor
-    let zlib_compression = ZlibCompression::default();
+    let mut compressed_data = Vec::new();
+    {
+        let mut compressor = CompressingWriter::new(&mut compressed_data);
+        compressor.write_all(data).unwrap();
+        compressor.flush().unwrap();
+    }
 
-    // Create a destination to compress to
-    let destination = Cursor::new(Vec::new());
-    // And compress the data
-    let result = zlib_compression.compress(data, destination);
-    assert!(result.is_ok());
-    let destination = result.unwrap().into_inner();
+    let mut compressed_data_cursor = Cursor::new(&compressed_data);
+    let mut decompressor =
+        DecompressingReader::new(&mut compressed_data_cursor);
+    let mut decompressed_data = Vec::new();
+    decompressor.read_to_end(&mut decompressed_data).unwrap();
 
-    // We will setup to decode for a round trip test
-    let original = Cursor::new(Vec::new());
-    let result = zlib_compression.decompress(destination, original);
-    assert!(result.is_ok());
-    let original = result.unwrap();
-    assert_eq!(data, original.get_ref().as_slice());
+    assert_eq!(data, decompressed_data.as_slice());
 }
 
 #[test]
-fn compression_with_custom_settings() {
+fn round_trip_custom_compression_level() {
     let data = b"Hello, world!";
-    // Create a new ZlibCompressor with custom settings
-    let zlib_compression = ZlibCompression::new(Compression::fast());
-    // Create a destination to compress to
-    let destination = Cursor::new(Vec::new());
-    // And compress the data
-    let result = zlib_compression.compress(data, destination);
-    assert!(result.is_ok());
-    let destination = result.unwrap().into_inner();
+    let compression_level = Compression::new(6); // Custom compression level
+    let mut compressed_data = Vec::new();
+    {
+        let mut compressor = CompressingWriter::with_compression(
+            &mut compressed_data,
+            compression_level,
+        );
+        compressor.write_all(data).unwrap();
+        let _ = compressor.finish().unwrap();
+    }
 
-    // We will setup to decode for a round trip test
-    let original = Cursor::new(Vec::new());
-    let result = zlib_compression.decompress(destination, original);
-    assert!(result.is_ok());
-    let original = result.unwrap();
-    assert_eq!(data, original.get_ref().as_slice());
+    let mut compressed_data_cursor = Cursor::new(&compressed_data);
+    let mut decompressor =
+        DecompressingReader::new(&mut compressed_data_cursor);
+    let mut decompressed_data = Vec::new();
+    decompressor.read_to_end(&mut decompressed_data).unwrap();
+
+    assert_eq!(data, decompressed_data.as_slice());
 }
