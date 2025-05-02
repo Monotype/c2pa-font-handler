@@ -22,14 +22,17 @@ fn round_trip_compress_decompress() {
     let data = b"Hello, world!";
     let mut compressed_data = Vec::new();
     {
-        let mut compressor = CompressingWriter::new(&mut compressed_data);
+        let mut compressor =
+            CompressingWriter::builder(&mut compressed_data).build();
         compressor.write_all(data).unwrap();
         compressor.flush().unwrap();
     }
 
     let mut compressed_data_cursor = Cursor::new(&compressed_data);
     let mut decompressor =
-        DecompressingReader::new(&mut compressed_data_cursor);
+        DecompressingReader::builder(&mut compressed_data_cursor)
+            .with_algorithm(EncoderDecoderAlgorithm::Zlib)
+            .build();
     let mut decompressed_data = Vec::new();
     decompressor.read_to_end(&mut decompressed_data).unwrap();
 
@@ -42,17 +45,16 @@ fn round_trip_custom_compression_level() {
     let compression_level = Compression::new(6); // Custom compression level
     let mut compressed_data = Vec::new();
     {
-        let mut compressor = CompressingWriter::with_compression(
-            &mut compressed_data,
-            compression_level,
-        );
+        let mut compressor = CompressingWriter::builder(&mut compressed_data)
+            .with_compression(compression_level)
+            .build();
         compressor.write_all(data).unwrap();
         let _ = compressor.finish().unwrap();
     }
 
     let mut compressed_data_cursor = Cursor::new(&compressed_data);
     let mut decompressor =
-        DecompressingReader::new(&mut compressed_data_cursor);
+        DecompressingReader::builder(&mut compressed_data_cursor).build();
     let mut decompressed_data = Vec::new();
     decompressor.read_to_end(&mut decompressed_data).unwrap();
 

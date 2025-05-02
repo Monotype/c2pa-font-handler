@@ -32,7 +32,8 @@
 //! let mut compressed_data = Vec::new();
 //! {
 //!     // Create the `CompressingWriter` and write the data to it
-//!     let mut compressor = CompressingWriter::new(&mut compressed_data);
+//!     let mut compressor =
+//!         CompressingWriter::builder(&mut compressed_data).build();
 //!     compressor.write_all(data)?;
 //!     compressor.finish()?;
 //! }
@@ -58,34 +59,93 @@ use flate2::Compression;
 
 use super::CompressionError;
 
-/// A type alias for the encoder used in compression.
-pub type Encoder<'a, S> = flate2::write::ZlibEncoder<&'a mut S>;
+/// The available compression algorithms.
+pub enum EncoderDecoderAlgorithm {
+    Zlib,
+}
 
-/// A type alias for the decoder used in decompression.
-pub type Decoder<'a, S> = flate2::read::ZlibDecoder<&'a mut S>;
+/// The available compression encoders.
+pub enum Encoders<'a, S: 'a + Write + ?Sized> {
+    Zlib(flate2::write::ZlibEncoder<&'a mut S>),
+    // TODO: Add more encoders as needed.
+}
+
+/// The available decompression decoders.
+pub enum Decoders<'a, S: 'a + Read + ?Sized> {
+    Zlib(flate2::read::ZlibDecoder<&'a mut S>),
+    // TODO: Add more decoders as needed.
+}
+
+impl<'a, S: 'a + Write + ?Sized> Encoders<'a, S> {
+    /// Creates a new encoder with the specified algorithm and compression
+    /// level.
+    pub fn with_compression(
+        inner: &'a mut S,
+        algorithm: EncoderDecoderAlgorithm,
+        compression: Compression,
+    ) -> Self {
+        match algorithm {
+            EncoderDecoderAlgorithm::Zlib => Encoders::Zlib(
+                flate2::write::ZlibEncoder::new(inner, compression),
+            ),
+        }
+    }
+
+    /// Finishes the compression and returns the underlying stream.
+    pub fn finish(self) -> Result<&'a mut S, std::io::Error> {
+        match self {
+            Encoders::Zlib(encoder) => encoder.finish(),
+        }
+    }
+
+    /// Writes data to the encoder, applying compression.
+    pub fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            Encoders::Zlib(encoder) => encoder.write(buf),
+        }
+    }
+
+    /// Flushes the encoder, ensuring all data is written to the underlying
+    /// stream.
+    pub fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            Encoders::Zlib(encoder) => encoder.flush(),
+        }
+    }
+}
+
+impl<'a, S: 'a + Read + ?Sized> Decoders<'a, S> {
+    /// Creates a new decoder with the specified algorithm.
+    pub fn new(inner: &'a mut S, algorithm: EncoderDecoderAlgorithm) -> Self {
+        match algorithm {
+            EncoderDecoderAlgorithm::Zlib => {
+                Decoders::Zlib(flate2::read::ZlibDecoder::new(inner))
+            }
+        }
+    }
+
+    /// Reads data from the decoder, decompressing it into the provided buffer.
+    pub fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Decoders::Zlib(decoder) => decoder.read(buf),
+        }
+    }
+}
 
 /// A structure for writing bytes to which compression is applied.
 pub struct CompressingWriter<'a, S: 'a + Write + ?Sized> {
-    encoder: Encoder<'a, S>,
+    encoder: Encoders<'a, S>,
 }
 
 impl<'a, S: 'a + Write + ?Sized> CompressingWriter<'a, S> {
     /// Creates a new [`CompressingWriter`] with the default compression level.
-    pub fn new(inner: &'a mut S) -> Self {
-        Self {
-            encoder: Encoder::new(inner, Compression::default()),
-        }
+    fn new(encoder: Encoders<'a, S>) -> Self {
+        Self { encoder }
     }
 
-    /// Creates a new [`CompressingWriter`] with the specified compression
-    /// level.
-    pub fn with_compression(
-        inner: &'a mut S,
-        compression: Compression,
-    ) -> Self {
-        Self {
-            encoder: Encoder::new(inner, compression),
-        }
+    /// Creates a new [`CompressingWriterBuilder`] for the given stream.
+    pub fn builder(inner: &'a mut S) -> CompressingWriterBuilder<'a, S> {
+        CompressingWriterBuilder::new(inner)
     }
 
     /// Finishes the compression and returns the underlying stream.
@@ -107,18 +167,63 @@ impl<'a, S: 'a + Write + ?Sized> Write for CompressingWriter<'a, S> {
     }
 }
 
+/// A builder for creating a [`CompressingWriter`].
+pub struct CompressingWriterBuilder<'a, S: 'a + Write + ?Sized> {
+    inner: &'a mut S,
+    compression: Compression,
+    algorithm: EncoderDecoderAlgorithm,
+}
+
+impl<'a, S: 'a + Write + ?Sized> CompressingWriterBuilder<'a, S> {
+    /// Creates a new [`CompressingWriterBuilder`] with the specified
+    /// compression level and algorithm.
+    pub fn new(inner: &'a mut S) -> Self {
+        Self {
+            inner,
+            compression: Compression::default(),
+            algorithm: EncoderDecoderAlgorithm::Zlib,
+        }
+    }
+
+    /// Sets the compression level.
+    pub fn with_compression(self, compression: Compression) -> Self {
+        Self {
+            compression,
+            ..self
+        }
+    }
+
+    /// Sets the compression algorithm.
+    pub fn with_algorithm(self, algorithm: EncoderDecoderAlgorithm) -> Self {
+        Self { algorithm, ..self }
+    }
+
+    /// Builds the [`CompressingWriter`].
+    pub fn build(self) -> CompressingWriter<'a, S> {
+        let encoder = Encoders::with_compression(
+            self.inner,
+            self.algorithm,
+            self.compression,
+        );
+        CompressingWriter::new(encoder)
+    }
+}
+
 /// A structure for reading bytes from a compressed stream.
 pub struct DecompressingReader<'a, S: 'a + Read + ?Sized> {
     // The underlying decoder used for decompression.
-    decoder: Decoder<'a, S>,
+    decoder: Decoders<'a, S>,
 }
 
 impl<'a, S: 'a + Read + ?Sized> DecompressingReader<'a, S> {
     /// Creates a new [`DecompressingReader`].
-    pub fn new(inner: &'a mut S) -> Self {
-        Self {
-            decoder: Decoder::new(inner),
-        }
+    pub fn new(decoder: Decoders<'a, S>) -> Self {
+        Self { decoder }
+    }
+
+    /// Creates a new [`DecompressingReaderBuilder`] for the given stream.
+    pub fn builder(inner: &'a mut S) -> DecompressingReaderBuilder<'a, S> {
+        DecompressingReaderBuilder::new(inner)
     }
 }
 
@@ -127,6 +232,40 @@ impl<'a, S: 'a + Read + ?Sized> DecompressingReader<'a, S> {
 impl<'a, S: 'a + Read + ?Sized> Read for DecompressingReader<'a, S> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.decoder.read(buf)
+    }
+}
+
+/// A builder for creating a [`DecompressingReader`] types.
+pub struct DecompressingReaderBuilder<'a, S: 'a + Read + ?Sized> {
+    /// The underlying stream to read from.
+    inner: &'a mut S,
+    /// The decoder algorithm to use.
+    algorithm: EncoderDecoderAlgorithm,
+}
+
+impl<'a, S: 'a + Read + ?Sized> DecompressingReaderBuilder<'a, S> {
+    /// Creates a new [`DecompressingReaderBuilder`] with the specified
+    /// algorithm.
+    pub fn new(inner: &'a mut S) -> Self {
+        Self {
+            inner,
+            algorithm: EncoderDecoderAlgorithm::Zlib,
+        }
+    }
+
+    /// Sets the compression algorithm.
+    pub fn with_algorithm(self, algorithm: EncoderDecoderAlgorithm) -> Self {
+        Self { algorithm, ..self }
+    }
+
+    /// Builds the [`DecompressingReader`].
+    pub fn build(self) -> DecompressingReader<'a, S> {
+        let decoder = match self.algorithm {
+            EncoderDecoderAlgorithm::Zlib => {
+                Decoders::Zlib(flate2::read::ZlibDecoder::new(self.inner))
+            }
+        };
+        DecompressingReader::new(decoder)
     }
 }
 

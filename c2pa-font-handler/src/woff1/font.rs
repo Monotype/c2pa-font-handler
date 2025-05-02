@@ -17,7 +17,7 @@
 use std::{
     collections::{btree_map::Entry, BTreeMap},
     fmt::Display,
-    io::{Read, Seek, SeekFrom},
+    io::{Cursor, Read, Seek, SeekFrom},
 };
 
 use super::{
@@ -28,6 +28,7 @@ use super::{
 use crate::{
     c2pa::C2PASupport,
     chunks::{ChunkPosition, ChunkReader, ChunkTypeTrait},
+    compression::DecompressingReader,
     data::Data,
     error::FontIoError,
     sfnt::table::TableC2PA,
@@ -46,6 +47,33 @@ pub struct Woff1Font {
     pub(crate) private_data: Option<Data>,
 }
 
+impl Woff1Font {
+    fn decompress_table<R: Read + Seek + ?Sized>(
+        entry: &Woff1DirectoryEntry,
+        reader: &mut R,
+    ) -> Result<NamedTable, FontIoError> {
+        // If it is compressed, we need to decompress it
+        reader.seek(SeekFrom::Start(entry.offset as u64))?;
+        // Create a buffer to hold the decompressed data
+        let mut decompressed_data = vec![0; entry.origLength as usize];
+        // Create a decompressing reader
+        let mut decompress_reader =
+            DecompressingReader::builder(reader).build();
+
+        // Decompress the data
+        decompress_reader.read_exact(&mut decompressed_data)?;
+
+        // Create a cursor around the decompressed data
+        let mut decompressed_cursor = Cursor::new(decompressed_data);
+        let table = NamedTable::from_reader_exact(
+            &entry.tag(),
+            &mut decompressed_cursor,
+            0,
+            entry.origLength as usize,
+        )?;
+        Ok(table)
+    }
+}
 impl FontDataRead for Woff1Font {
     type Error = FontIoError;
 
@@ -66,38 +94,20 @@ impl FontDataRead for Woff1Font {
         // And setup to read the contents of the tables
         let mut tables = BTreeMap::new();
 
-        // TODO: Create a new decompression/compression type/stream that takes
-        // the reader this will be responsible for decompressing the
-        // data as it is read in
-
         for entry in directory.entries() {
             // check if the entry is compressed
-            let table = if entry.compLength < entry.origLength {
-                // If it is compressed, we need to decompress it
-                reader.seek(SeekFrom::Start(entry.offset as u64))?;
-                let mut compressed_data = vec![0; entry.origLength as usize];
-                let mut decompress_reader =
-                    crate::compression::DecompressingReader::new(reader);
-                // Decompress the data
-                decompress_reader.read_exact(&mut compressed_data)?;
-                let mut decompressed_cursor =
-                    std::io::Cursor::new(compressed_data);
-                let table = NamedTable::from_reader_exact(
-                    &entry.tag(),
-                    &mut decompressed_cursor,
-                    0,
-                    entry.origLength as usize,
-                )?;
-                table
+            let table = if entry.compLength < entry.origLength
+                && entry.tag == FontTag::C2PA
+            {
+                Self::decompress_table(entry, reader)?
             } else {
                 // Read in the table data
-                let table = NamedTable::from_reader_exact(
+                NamedTable::from_reader_exact(
                     &entry.tag(),
                     reader,
                     entry.offset as u64,
                     entry.length() as usize,
-                )?;
-                table
+                )?
             };
             tables.insert(entry.tag, table);
         }
