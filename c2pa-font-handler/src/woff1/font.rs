@@ -17,7 +17,7 @@
 use std::{
     collections::{btree_map::Entry, BTreeMap},
     fmt::Display,
-    io::{Read, Seek},
+    io::{Read, Seek, SeekFrom},
 };
 
 use super::{
@@ -71,13 +71,34 @@ impl FontDataRead for Woff1Font {
         // data as it is read in
 
         for entry in directory.entries() {
-            // Read in the table data
-            let table = NamedTable::from_reader_exact(
-                &entry.tag(),
-                reader,
-                entry.offset as u64,
-                entry.length() as usize,
-            )?;
+            // check if the entry is compressed
+            let table = if entry.compLength < entry.origLength {
+                // If it is compressed, we need to decompress it
+                reader.seek(SeekFrom::Start(entry.offset as u64))?;
+                let mut compressed_data = vec![0; entry.origLength as usize];
+                let mut decompress_reader =
+                    crate::compression::DecompressingReader::new(reader);
+                // Decompress the data
+                decompress_reader.read_exact(&mut compressed_data)?;
+                let mut decompressed_cursor =
+                    std::io::Cursor::new(compressed_data);
+                let table = NamedTable::from_reader_exact(
+                    &entry.tag(),
+                    &mut decompressed_cursor,
+                    0,
+                    entry.origLength as usize,
+                )?;
+                table
+            } else {
+                // Read in the table data
+                let table = NamedTable::from_reader_exact(
+                    &entry.tag(),
+                    reader,
+                    entry.offset as u64,
+                    entry.length() as usize,
+                )?;
+                table
+            };
             tables.insert(entry.tag, table);
         }
         // If we had extension metadata to read, read it

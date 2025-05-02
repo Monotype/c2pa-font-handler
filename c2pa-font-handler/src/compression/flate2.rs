@@ -54,20 +54,26 @@
 
 use std::io::{Read, Write};
 
-use flate2::{write::GzEncoder, Compression};
+use flate2::Compression;
 
 use super::CompressionError;
 
+/// A type alias for the encoder used in compression.
+pub type Encoder<'a, S> = flate2::write::ZlibEncoder<&'a mut S>;
+
+/// A type alias for the decoder used in decompression.
+pub type Decoder<'a, S> = flate2::read::ZlibDecoder<&'a mut S>;
+
 /// A structure for writing bytes to which compression is applied.
-pub struct CompressingWriter<'a, S: 'a + Write> {
-    encoder: GzEncoder<&'a mut S>,
+pub struct CompressingWriter<'a, S: 'a + Write + ?Sized> {
+    encoder: Encoder<'a, S>,
 }
 
-impl<'a, S: 'a + Write> CompressingWriter<'a, S> {
+impl<'a, S: 'a + Write + ?Sized> CompressingWriter<'a, S> {
     /// Creates a new [`CompressingWriter`] with the default compression level.
     pub fn new(inner: &'a mut S) -> Self {
         Self {
-            encoder: GzEncoder::new(inner, Compression::default()),
+            encoder: Encoder::new(inner, Compression::default()),
         }
     }
 
@@ -78,7 +84,7 @@ impl<'a, S: 'a + Write> CompressingWriter<'a, S> {
         compression: Compression,
     ) -> Self {
         Self {
-            encoder: GzEncoder::new(inner, compression),
+            encoder: Encoder::new(inner, compression),
         }
     }
 
@@ -91,7 +97,7 @@ impl<'a, S: 'a + Write> CompressingWriter<'a, S> {
 
 // Implement `Write` for `CompressingWriter`, allowing it to be used as a
 // standard writer.
-impl<'a, S: 'a + Write> Write for CompressingWriter<'a, S> {
+impl<'a, S: 'a + Write + ?Sized> Write for CompressingWriter<'a, S> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.encoder.write(buf)
     }
@@ -102,23 +108,23 @@ impl<'a, S: 'a + Write> Write for CompressingWriter<'a, S> {
 }
 
 /// A structure for reading bytes from a compressed stream.
-pub struct DecompressingReader<'a, S: 'a + Read> {
+pub struct DecompressingReader<'a, S: 'a + Read + ?Sized> {
     // The underlying decoder used for decompression.
-    decoder: flate2::read::GzDecoder<&'a mut S>,
+    decoder: Decoder<'a, S>,
 }
 
-impl<'a, S: 'a + Read> DecompressingReader<'a, S> {
+impl<'a, S: 'a + Read + ?Sized> DecompressingReader<'a, S> {
     /// Creates a new [`DecompressingReader`].
     pub fn new(inner: &'a mut S) -> Self {
         Self {
-            decoder: flate2::read::GzDecoder::new(inner),
+            decoder: Decoder::new(inner),
         }
     }
 }
 
 // Implement `Read` for `DecompressingReader`, allowing it to be used as a
 // standard reader.
-impl<'a, S: 'a + Read> Read for DecompressingReader<'a, S> {
+impl<'a, S: 'a + Read + ?Sized> Read for DecompressingReader<'a, S> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.decoder.read(buf)
     }
