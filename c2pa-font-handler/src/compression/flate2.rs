@@ -42,7 +42,7 @@
 //! let mut compressed_data_cursor = Cursor::new(&compressed_data);
 //! // Create the `DecompressingReader`
 //! let mut decompressor =
-//!     DecompressingReader::new(&mut compressed_data_cursor);
+//!     DecompressingReader::builder(&mut compressed_data_cursor).build();
 //! // And create a buffer to hold the decompressed data
 //! let mut decompressed_data = Vec::new();
 //! // Read the decompressed data into the buffer
