@@ -19,7 +19,7 @@
 #[cfg(feature = "flate")]
 mod flate2;
 #[cfg(feature = "flate")]
-pub use crate::compression::flate2::{CompressingWriter, DecompressingReader};
+pub use flate2::{CompressingWriter, DecompressingReader};
 
 /// Errors related to compression.
 #[derive(Debug, thiserror::Error)]

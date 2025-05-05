@@ -25,8 +25,6 @@ use crate::{
 pub enum NamedTable {
     /// 'C2PA' table
     C2PA(TableC2PA),
-    /// Compressed 'C2PA' table
-    CompressedC2PA(Data),
     /// Generic table
     Generic(Data),
 }
@@ -57,7 +55,6 @@ impl FontDataWrite for NamedTable {
     ) -> Result<(), Self::Error> {
         match self {
             NamedTable::C2PA(table) => table.write(dest)?,
-            NamedTable::CompressedC2PA(table) => table.write(dest)?,
             NamedTable::Generic(table) => table.write(dest)?,
         }
         Ok(())
@@ -68,7 +65,6 @@ impl FontDataChecksum for NamedTable {
     fn checksum(&self) -> std::num::Wrapping<u32> {
         match self {
             NamedTable::C2PA(table) => table.checksum(),
-            NamedTable::CompressedC2PA(table) => table.checksum(),
             NamedTable::Generic(table) => table.checksum(),
         }
     }
@@ -78,7 +74,6 @@ impl FontTable for NamedTable {
     fn len(&self) -> u32 {
         match self {
             NamedTable::C2PA(table) => table.len(),
-            NamedTable::CompressedC2PA(table) => table.len(),
             NamedTable::Generic(table) => table.len(),
         }
     }
