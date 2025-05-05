@@ -165,7 +165,7 @@ pub trait FontTable: FontDataChecksum + FontDataWrite {
     /// Returns the length of the table.
     fn len(&self) -> u32;
     /// Returns the data of the table.
-    fn data(&self) -> &[u8];
+    //fn data(&self) -> &[u8];
     /// Returns whether the table is empty.
     fn is_empty(&self) -> bool {
         self.len() == 0

@@ -224,17 +224,6 @@ impl FontDataChecksum for TableHead {
 }
 
 impl FontTable for TableHead {
-    fn data(&self) -> &[u8] {
-        // SAFETY: The struct is packed, so the data is laid out in memory
-        // exactly as it is in the file.
-        unsafe {
-            std::slice::from_raw_parts(
-                self as *const _ as *const u8,
-                Self::SIZE,
-            )
-        }
-    }
-
     fn len(&self) -> u32 {
         Self::SIZE as u32
     }

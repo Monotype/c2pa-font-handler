@@ -86,10 +86,6 @@ impl FontDataChecksum for Data {
 }
 
 impl FontTable for Data {
-    fn data(&self) -> &[u8] {
-        &self.data
-    }
-
     fn len(&self) -> u32 {
         self.data.len() as u32
     }

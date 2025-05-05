@@ -60,3 +60,26 @@ fn round_trip_custom_compression_level() {
 
     assert_eq!(data, decompressed_data.as_slice());
 }
+
+#[test]
+fn round_trip_compress_decompress_with_algorithm() {
+    let data = b"Hello, world!";
+    let mut compressed_data = Vec::new();
+    {
+        let mut compressor = CompressingWriter::builder(&mut compressed_data)
+            .with_algorithm(EncoderDecoderAlgorithm::Zlib)
+            .build();
+        compressor.write_all(data).unwrap();
+        compressor.flush().unwrap();
+    }
+
+    let mut compressed_data_cursor = Cursor::new(&compressed_data);
+    let mut decompressor =
+        DecompressingReader::builder(&mut compressed_data_cursor)
+            .with_algorithm(EncoderDecoderAlgorithm::Zlib)
+            .build();
+    let mut decompressed_data = Vec::new();
+    decompressor.read_to_end(&mut decompressed_data).unwrap();
+
+    assert_eq!(data, decompressed_data.as_slice());
+}

@@ -75,14 +75,6 @@ impl FontDataChecksum for NamedTable {
 }
 
 impl FontTable for NamedTable {
-    fn data(&self) -> &[u8] {
-        match self {
-            NamedTable::C2PA(table) => table.data(),
-            NamedTable::CompressedC2PA(table) => table.data(),
-            NamedTable::Generic(table) => table.data(),
-        }
-    }
-
     fn len(&self) -> u32 {
         match self {
             NamedTable::C2PA(table) => table.len(),

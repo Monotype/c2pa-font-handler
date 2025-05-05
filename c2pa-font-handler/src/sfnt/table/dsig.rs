@@ -113,10 +113,6 @@ impl FontDataChecksum for TableDSIG {
 }
 
 impl FontTable for TableDSIG {
-    fn data(&self) -> &[u8] {
-        &self.data
-    }
-
     fn len(&self) -> u32 {
         Self::MINIMUM_SIZE as u32
     }

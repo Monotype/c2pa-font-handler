@@ -67,13 +67,13 @@ pub enum EncoderDecoderAlgorithm {
 /// The available compression encoders.
 pub enum Encoders<'a, S: 'a + Write + ?Sized> {
     Zlib(flate2::write::ZlibEncoder<&'a mut S>),
-    // TODO: Add more encoders as needed.
+    // TODO: Add more decoders as needed (i.e., when we go to support WOFF2).
 }
 
 /// The available decompression decoders.
 pub enum Decoders<'a, S: 'a + Read + ?Sized> {
     Zlib(flate2::read::ZlibDecoder<&'a mut S>),
-    // TODO: Add more decoders as needed.
+    // TODO: Add more decoders as needed (i.e., when we go to support WOFF2).
 }
 
 impl<'a, S: 'a + Write + ?Sized> Encoders<'a, S> {
@@ -260,12 +260,7 @@ impl<'a, S: 'a + Read + ?Sized> DecompressingReaderBuilder<'a, S> {
 
     /// Builds the [`DecompressingReader`].
     pub fn build(self) -> DecompressingReader<'a, S> {
-        let decoder = match self.algorithm {
-            EncoderDecoderAlgorithm::Zlib => {
-                Decoders::Zlib(flate2::read::ZlibDecoder::new(self.inner))
-            }
-        };
-        DecompressingReader::new(decoder)
+        DecompressingReader::new(Decoders::new(self.inner, self.algorithm))
     }
 }
 
