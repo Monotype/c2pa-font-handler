@@ -61,17 +61,20 @@ use super::CompressionError;
 
 /// The available compression algorithms.
 pub enum EncoderDecoderAlgorithm {
+    /// Zlib compression algorithm.
     Zlib,
 }
 
 /// The available compression encoders.
 pub enum Encoders<'a, S: 'a + Write + ?Sized> {
+    /// Zlib encoder.
     Zlib(flate2::write::ZlibEncoder<&'a mut S>),
     // TODO: Add more decoders as needed (i.e., when we go to support WOFF2).
 }
 
 /// The available decompression decoders.
 pub enum Decoders<'a, S: 'a + Read + ?Sized> {
+    /// Zlib decoder.
     Zlib(flate2::read::ZlibDecoder<&'a mut S>),
     // TODO: Add more decoders as needed (i.e., when we go to support WOFF2).
 }
