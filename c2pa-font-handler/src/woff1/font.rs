@@ -15,33 +15,134 @@
 //! woff1 font.
 
 use std::{
-    collections::BTreeMap,
+    collections::{btree_map::Entry, BTreeMap},
     fmt::Display,
-    io::{Read, Seek},
+    io::{Cursor, Read, Seek, SeekFrom, Write},
 };
 
 use super::{
     directory::{Woff1Directory, Woff1DirectoryEntry},
     header::Woff1Header,
-    Table,
+    table::NamedTable,
 };
 use crate::{
+    c2pa::C2PASupport,
     chunks::{ChunkPosition, ChunkReader, ChunkTypeTrait},
+    compression::{CompressingWriter, DecompressingReader},
     data::Data,
     error::FontIoError,
+    sfnt::table::TableC2PA,
     tag::FontTag,
     utils::align_to_four,
-    Font, FontDataExactRead, FontDataRead, FontDataWrite, FontDirectory,
-    FontDirectoryEntry, FontHeader, FontTable, MutFontDataWrite,
+    Font, FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
+    FontDirectory, FontDirectoryEntry, FontHeader, FontTable, MutFontDataWrite,
 };
 
 /// Implementation of an woff1 font.
 pub struct Woff1Font {
     pub(crate) header: Woff1Header,
     pub(crate) directory: Woff1Directory,
-    pub(crate) tables: BTreeMap<FontTag, Table>,
+    pub(crate) tables: BTreeMap<FontTag, NamedTable>,
     pub(crate) metadata: Option<Data>,
     pub(crate) private_data: Option<Data>,
+}
+
+impl Woff1Font {
+    /// Read and decompress a table from the WOFF1 font, for the
+    /// given directory entry.
+    fn decompress_table<R: Read + Seek + ?Sized>(
+        entry: &Woff1DirectoryEntry,
+        reader: &mut R,
+    ) -> Result<NamedTable, FontIoError> {
+        // Seek to the start of the compressed data
+        reader.seek(SeekFrom::Start(entry.offset as u64))?;
+
+        // Create a decompressing reader
+        let mut decompress_reader =
+            DecompressingReader::builder(reader).build();
+
+        // Read decompressed data into a buffer
+        let mut decompressed_data = Vec::new();
+        decompress_reader.read_to_end(&mut decompressed_data)?;
+
+        // Use a Cursor to wrap the decompressed data
+        let mut cursor = Cursor::new(decompressed_data);
+
+        let table = NamedTable::from_reader_exact(
+            &entry.tag(),
+            &mut cursor,
+            0,
+            entry.origLength as usize,
+        )?;
+        Ok(table)
+    }
+
+    /// Optimizes the table data by compressing it if it is larger than
+    /// the original data. If the compressed data is larger than the
+    /// original data, the original data is returned.
+    fn optimize_table_data<R: Read + Seek + ?Sized>(
+        reader: &mut R,
+        offset: u64,
+        length: u32,
+    ) -> Result<WoffTableData, FontIoError> {
+        // Seek to the position we are to read from
+        reader.seek(SeekFrom::Start(offset))?;
+
+        // Create a buffer to hold the uncompressed data
+        let mut uncompressed_data = vec![0; length as usize];
+        reader.read_exact(&mut uncompressed_data)?;
+
+        // Create a buffer to hold the compressed data
+        let mut compressed_data = Vec::new();
+        {
+            let mut compressed_writer =
+                CompressingWriter::builder(&mut compressed_data).build();
+            compressed_writer.write_all(&uncompressed_data)?;
+            compressed_writer.finish()?; // ensure all data is written
+        }
+        let compressed_length = compressed_data.len() as u32;
+
+        // Build up the return value based on if we actually saved space
+        // compressing
+        if compressed_length >= length {
+            tracing::debug!("Not compressing C2PA table");
+            // If we didn't save space, just return the original data
+            Ok(WoffTableData::Uncompressed {
+                data: Data::new(uncompressed_data),
+                length,
+            })
+        } else {
+            tracing::debug!(
+                "Compressing C2PA table; saved {} bytes",
+                length - compressed_length
+            );
+            Ok(WoffTableData::Compressed {
+                data: Data::new(compressed_data),
+                compressed_length,
+                original_length: length,
+            })
+        }
+    }
+
+    /// Prepare a new header based on the current state of the font.
+    fn prepare_header(&self) -> Woff1Header {
+        // Fill in the new header with the old header's values
+        Woff1Header {
+            flavor: self.header.flavor,
+            length: self.header.length,
+            numTables: self.tables.len() as u16,
+            reserved: self.header.reserved,
+            totalSfntSize: self.header.totalSfntSize,
+            majorVersion: self.header.majorVersion,
+            minorVersion: self.header.minorVersion,
+            metaOffset: self.header.metaOffset,
+            metaLength: self.header.metaLength,
+            metaOrigLength: self.header.metaOrigLength,
+            privOffset: self.header.privOffset,
+            privLength: self.header.privLength,
+            ..Default::default()
+        }
+    }
 }
 
 impl FontDataRead for Woff1Font {
@@ -63,15 +164,22 @@ impl FontDataRead for Woff1Font {
         )?;
         // And setup to read the contents of the tables
         let mut tables = BTreeMap::new();
+
         for entry in directory.entries() {
-            // Get the 4-byte aligned length of the table
-            let aligned_length = align_to_four(entry.compLength) as usize;
-            // Read in the table data
-            let table = Data::from_reader_exact(
-                reader,
-                entry.offset as u64,
-                aligned_length,
-            )?;
+            // check if the entry is compressed
+            let table = if entry.compLength < entry.origLength
+                && entry.tag == FontTag::C2PA
+            {
+                Self::decompress_table(entry, reader)?
+            } else {
+                // Read in the table data
+                NamedTable::from_reader_exact(
+                    &entry.tag(),
+                    reader,
+                    entry.offset as u64,
+                    entry.length() as usize,
+                )?
+            };
             tables.insert(entry.tag, table);
         }
         // If we had extension metadata to read, read it
@@ -114,22 +222,8 @@ impl MutFontDataWrite for Woff1Font {
         dest: &mut TDest,
     ) -> Result<(), Self::Error> {
         // Setup to write our new header and directory
-        let mut neo_header = Woff1Header::default();
+        let mut neo_header = self.prepare_header();
         let mut neo_directory = Woff1Directory::default();
-
-        // Fill in the new header with the old header's values
-        neo_header.flavor = self.header.flavor;
-        neo_header.length = self.header.length;
-        neo_header.numTables = self.tables.len() as u16;
-        neo_header.reserved = self.header.reserved;
-        neo_header.totalSfntSize = self.header.totalSfntSize;
-        neo_header.majorVersion = self.header.majorVersion;
-        neo_header.minorVersion = self.header.minorVersion;
-        neo_header.metaOffset = self.header.metaOffset;
-        neo_header.metaLength = self.header.metaLength;
-        neo_header.metaOrigLength = self.header.metaOrigLength;
-        neo_header.privOffset = self.header.privOffset;
-        neo_header.privLength = self.header.privLength;
 
         // Fill in the new directory with the old directory's values
         let new_table_count = self.tables.len() as u16;
@@ -140,8 +234,8 @@ impl MutFontDataWrite for Woff1Font {
 
         // Iterate over the old directory and add entries to the new directory
         self.directory.physical_order().iter().for_each(|entry| {
-            if self.tables.contains_key(&entry.tag) {
-                let table = self.tables.get(&entry.tag).unwrap();
+            // If we have a table for the entry, add it to the new directory
+            if let Some(table) = self.tables.get(&entry.tag) {
                 let neo_entry = Woff1DirectoryEntry {
                     tag: entry.tag,
                     offset: running_offset,
@@ -154,15 +248,44 @@ impl MutFontDataWrite for Woff1Font {
             }
         });
 
+        // We will need to keep up with the original checksum for the C2PA table
+        // to write it later in the directory entry
+        let mut original_checksum = 0;
+        // If we have a C2PA table, we will attempt to compress it
+        let c2pa_data = self
+            .tables
+            .get(&FontTag::C2PA)
+            .map(|c2pa| {
+                original_checksum = c2pa.checksum().0;
+                let mut data_to_compress = Vec::new();
+                c2pa.write(&mut data_to_compress)?;
+                let c2pa_table = Self::optimize_table_data(
+                    &mut Cursor::new(data_to_compress),
+                    0,
+                    c2pa.len(),
+                )?;
+                // Add the C2PA table to the new directory
+                neo_directory.add_entry(Woff1DirectoryEntry {
+                    tag: FontTag::C2PA,
+                    offset: running_offset,
+                    compLength: c2pa_table.compressed_length(),
+                    origLength: c2pa_table.length(),
+                    origChecksum: original_checksum,
+                });
+                running_offset += align_to_four(c2pa_table.compressed_length());
+                Ok::<_, FontIoError>(c2pa_table)
+            })
+            .transpose()?;
+
         // Sort the new directory by tag
         neo_directory.sort_entries(|entry| entry.tag);
 
         // If we have extension metadata, update the header
         if let Some(meta) = &self.metadata {
             neo_header.metaOffset = running_offset;
-            let aligned_length = align_to_four(meta.len());
-            neo_header.metaLength = meta.len();
-            running_offset += aligned_length;
+            let meta_length = meta.len();
+            neo_header.metaLength = meta_length;
+            running_offset += align_to_four(meta_length);
         }
 
         // If we have private data, update the header
@@ -178,8 +301,20 @@ impl MutFontDataWrite for Woff1Font {
         self.header.write(dest)?;
         self.directory.write(dest)?;
         // And write out the tables
-        for entry in self.directory.physical_order().iter() {
-            self.tables[&entry.tag].write(dest)?;
+        for entry in self.directory.physical_order() {
+            match entry.tag {
+                FontTag::C2PA => {
+                    if let Some(c2pa) = &c2pa_data {
+                        c2pa.data().write(dest)?;
+                    } else {
+                        // Weird case, because if we have a C2PA table, we
+                        // should have a C2PA entry in the directory
+                        tracing::error!("C2PA table not found");
+                        return Err(FontIoError::ContentCredentialNotFound);
+                    }
+                }
+                _ => self.tables[&entry.tag].write(dest)?,
+            }
         }
         // If we have metadata, write it
         if let Some(meta) = &self.metadata {
@@ -196,7 +331,7 @@ impl MutFontDataWrite for Woff1Font {
 impl Font for Woff1Font {
     type Directory = Woff1Directory;
     type Header = Woff1Header;
-    type Table = Table;
+    type Table = NamedTable;
 
     fn header(&self) -> &Self::Header {
         &self.header
@@ -343,6 +478,117 @@ impl ChunkReader for Woff1Font {
             tracing::trace!("Private data position information added");
         }
         Ok(positions)
+    }
+}
+
+impl C2PASupport for Woff1Font {
+    type Error = FontIoError;
+
+    fn add_c2pa_record(
+        &mut self,
+        record: crate::c2pa::ContentCredentialRecord,
+    ) -> Result<(), Self::Error> {
+        // Look for an entry in the table
+        match self.tables.entry(FontTag::C2PA) {
+            // If we do not have an entry, we are good to go to insert the
+            // record
+            Entry::Vacant(entry) => {
+                // If we don't have an entry, create one
+                let table = TableC2PA {
+                    major_version: record.major_version(),
+                    minor_version: record.minor_version(),
+                    active_manifest_uri: record
+                        .active_manifest_uri()
+                        .map(|s| s.to_owned()),
+                    manifest_store: record
+                        .content_credential()
+                        .map(|s| s.to_vec()),
+                };
+                entry.insert(NamedTable::C2PA(table));
+                Ok(())
+            }
+            // Otherwise, we are in an error state
+            Entry::Occupied(_) => {
+                // If we do have an entry, return an error
+                Err(FontIoError::ContentCredentialAlreadyExists)
+            }
+        }
+    }
+
+    fn has_c2pa(&self) -> bool {
+        self.tables.contains_key(&FontTag::C2PA)
+    }
+
+    fn get_c2pa(
+        self,
+    ) -> Result<Option<crate::c2pa::ContentCredentialRecord>, Self::Error> {
+        // We will need to read in the C2PA table, it could be compressed, so we
+        // will need to look at the directory entry to see if it is
+        // compressed or not. If it is compressed, we will need to
+        // decompress it before we can read it.
+        let mut tables = self.tables;
+        if let Some(NamedTable::C2PA(table)) = tables.get_mut(&FontTag::C2PA) {
+            let table: &TableC2PA = &*table;
+            let record = crate::c2pa::ContentCredentialRecord::try_from(table)?;
+            Ok(Some(record))
+        } else {
+            // If we don't have a C2PA table, return None
+            Ok(None)
+        }
+    }
+
+    fn remove_c2pa_record(&mut self) -> Result<(), Self::Error> {
+        match self.tables.entry(FontTag::C2PA) {
+            Entry::Vacant(_) => Err(FontIoError::ContentCredentialNotFound),
+            Entry::Occupied(entry) => {
+                entry.remove();
+                Ok(())
+            }
+        }
+    }
+}
+
+/// The data for a table in the WOFF1 font
+enum WoffTableData {
+    /// Compressed data
+    Compressed {
+        data: Data,
+        compressed_length: u32,
+        original_length: u32,
+    },
+    /// Uncompressed data
+    Uncompressed { data: Data, length: u32 },
+}
+
+impl WoffTableData {
+    /// Get the length of the data
+    fn length(&self) -> u32 {
+        match self {
+            WoffTableData::Compressed {
+                original_length, ..
+            } => *original_length,
+            WoffTableData::Uncompressed { length, .. } => *length,
+        }
+    }
+
+    /// Get the compressed length of the data
+    fn compressed_length(&self) -> u32 {
+        match self {
+            WoffTableData::Compressed {
+                compressed_length, ..
+            } => *compressed_length,
+            // For WOFF, the compressed length is the same as the uncompressed
+            // length, so we return the uncompressed length
+            WoffTableData::Uncompressed { length, .. } => *length,
+        }
+    }
+
+    /// Get the data
+    fn data(&self) -> &Data {
+        match self {
+            WoffTableData::Compressed { data, .. } => data,
+            WoffTableData::Uncompressed { data, .. } => data,
+        }
     }
 }
 

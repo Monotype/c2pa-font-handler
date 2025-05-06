@@ -19,6 +19,10 @@ use super::tag::FontTag;
 /// Errors related to font I/O.
 #[derive(Debug, thiserror::Error)]
 pub enum FontIoError {
+    /// An error occurred while compressing/decompressing the font data.
+    #[cfg(feature = "compression")]
+    #[error(transparent)]
+    CompressionError(#[from] crate::compression::CompressionError),
     /// A content credential already exists
     #[error("A content credential already exists")]
     ContentCredentialAlreadyExists,

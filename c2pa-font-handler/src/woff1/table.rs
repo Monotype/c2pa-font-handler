@@ -12,9 +12,9 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//! WOFF1 font format
+//! SFNT font file table.
 
-pub mod directory;
-pub mod font;
-pub mod header;
-pub mod table;
+pub(crate) mod named_table;
+
+// Export named table
+pub use named_table::NamedTable;
