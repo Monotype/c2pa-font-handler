@@ -26,7 +26,7 @@ use super::{
     table::NamedTable,
 };
 use crate::{
-    c2pa::C2PASupport,
+    c2pa::{C2PASupport, UpdatableC2PA},
     chunks::{ChunkPosition, ChunkReader, ChunkTypeTrait},
     compression::{CompressingWriter, DecompressingReader},
     data::Data,
@@ -549,6 +549,36 @@ impl C2PASupport for Woff1Font {
             Entry::Occupied(entry) => {
                 entry.remove();
                 Ok(())
+            }
+        }
+    }
+}
+
+impl UpdatableC2PA for Woff1Font {
+    type Error = FontIoError;
+
+    fn update_c2pa_record(
+        &mut self,
+        record: crate::c2pa::UpdateContentCredentialRecord,
+    ) -> Result<(), Self::Error> {
+        // Look for an entry int he table
+        match self.tables.entry(FontTag::C2PA) {
+            // if vacant, we are good to go to insert the record
+            Entry::Vacant(vacant_entry) => {
+                let mut c2pa_table = TableC2PA::default();
+                c2pa_table.update_c2pa_record(record)?;
+                vacant_entry.insert(NamedTable::C2PA(c2pa_table));
+                Ok(())
+            }
+            // Otherwise, we already have a record, so we need to update it
+            Entry::Occupied(mut occupied_entry) => {
+                match occupied_entry.get_mut() {
+                    NamedTable::C2PA(table_c2pa) => {
+                        table_c2pa.update_c2pa_record(record)?;
+                        Ok(())
+                    }
+                    _ => Err(FontIoError::ContentCredentialNotFound),
+                }
             }
         }
     }
