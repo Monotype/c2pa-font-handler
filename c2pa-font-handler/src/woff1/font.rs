@@ -54,17 +54,20 @@ impl Woff1Font {
         entry: &Woff1DirectoryEntry,
         reader: &mut R,
     ) -> Result<NamedTable, FontIoError> {
+        tracing::trace!("Decompressing table: {:?}", entry.tag());
         // Seek to the start of the compressed data
         reader.seek(SeekFrom::Start(entry.offset as u64))?;
 
+        // Grab a portion of the stream which will only read the size of
+        // the compressed data.
+        let mut stream_slice = reader.take(entry.compLength as u64);
         // Create a decompressing reader
         let mut decompress_reader =
-            DecompressingReader::builder(reader).build();
+            DecompressingReader::builder(&mut stream_slice).build();
 
         // Read decompressed data into a buffer
-        let mut decompressed_data = Vec::new();
-        decompress_reader.read_to_end(&mut decompressed_data)?;
-
+        let mut decompressed_data = vec![0; entry.origLength as usize];
+        decompress_reader.read_exact(&mut decompressed_data)?;
         // Use a Cursor to wrap the decompressed data
         let mut cursor = Cursor::new(decompressed_data);
 
@@ -74,6 +77,7 @@ impl Woff1Font {
             0,
             entry.origLength as usize,
         )?;
+        tracing::trace!("Decompressed table for entry: {:?}", entry,);
         Ok(table)
     }
 
@@ -309,7 +313,9 @@ impl MutFontDataWrite for Woff1Font {
                     } else {
                         // Weird case, because if we have a C2PA table, we
                         // should have a C2PA entry in the directory
-                        tracing::error!("C2PA table not found");
+                        tracing::error!(
+                            "C2PA table not found (this should not happen)"
+                        );
                         return Err(FontIoError::ContentCredentialNotFound);
                     }
                 }
