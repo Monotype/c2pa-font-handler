@@ -505,7 +505,7 @@ fn test_remove_c2pa_record_for_woff() {
 }
 
 #[test]
-fn test_get_c2pa_on_empty_woff() {
+fn test_get_c2pa_for_unsigned_woff() {
     // Load the font data bytes
     let font_data = include_bytes!("../../../.devtools/font.woff");
     let mut reader = std::io::Cursor::new(font_data);
@@ -515,7 +515,7 @@ fn test_get_c2pa_on_empty_woff() {
 }
 
 #[test]
-fn test_remove_c2pa_on_empty_woff() {
+fn test_remove_c2pa_on_unsigned_woff() {
     // Load the font data bytes
     let font_data = include_bytes!("../../../.devtools/font.woff");
     let mut reader = std::io::Cursor::new(font_data);
@@ -553,4 +553,22 @@ fn test_add_c2pa_when_one_is_already_present() {
         result,
         Err(FontIoError::ContentCredentialAlreadyExists)
     ));
+}
+
+#[test]
+#[tracing_test::traced_test]
+fn test_get_c2pa_from_woff_font() {
+    // Load the signed WOFF font data bytes
+    let font_data = include_bytes!("../../../.devtools/font_with_c2pa.woff");
+    let mut reader = std::io::Cursor::new(font_data);
+    let woff = Woff1Font::from_reader(&mut reader).unwrap();
+    // Check that the C2PA record was added successfully
+    assert!(woff.has_c2pa());
+    let result = woff.get_c2pa();
+    assert!(result.is_ok());
+    let c2pa_record = result.unwrap().unwrap();
+    assert_eq!(
+        c2pa_record.active_manifest_uri(),
+        Some("https://example.com/manifest.json")
+    );
 }
