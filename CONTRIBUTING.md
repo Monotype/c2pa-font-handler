@@ -143,7 +143,7 @@ To profile, the only difference is how the benches are ran. For example the foll
 perform profiling of the WOFF1 benchmarks:
 
 ```bash
-cargo test --profile release --bench woff1 -- --profile-time 3 --bench
+cargo test --profile release --bench woff1 --features="woff" -- --profile-time 3 --bench
 ```
 
 And then to convert the output to a human-readable format, you can use the
