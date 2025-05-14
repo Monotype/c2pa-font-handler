@@ -610,3 +610,43 @@ fn test_table_c2pa_read_exact_with_invalid_uri_bytes() {
     let error = result.err().unwrap();
     assert!(matches!(error, FontIoError::StringFromUtf8(_)));
 }
+
+// Used to generate a test file for the C2PA table in the format of a font table
+#[ignore]
+#[test]
+fn test_table_c2pa_create() {
+    let mut table = TableC2PA {
+        active_manifest_uri: Some(
+            "https://example.com/example/font/cc.c2pa".to_string(),
+        ),
+        ..Default::default()
+    };
+    // Make a fake manifest store that is 2048 bytes long
+    let rng_gen = |seed: &mut u32| {
+        const A: u32 = 48271;
+        const M: u32 = 2147483647;
+        *seed = seed.wrapping_mul(A).wrapping_add(M);
+        (*seed >> 16) as u8
+    };
+
+    // Setup to do different bands so any compression will be
+    // beneficial
+    let bands = 14;
+    // Setup for ~14KB of data
+    let size = 1024 * bands;
+    let mut manifest_store = vec![0; size];
+    // Fill the manifest store with some random data
+    for i in 0..bands {
+        let mut seed: u32 = i as u32;
+        let value = rng_gen(&mut seed);
+        for j in 0..(size / bands) {
+            // Generate some random data
+            manifest_store[i * (size / bands) + j] = value;
+        }
+    }
+    table.manifest_store = Some(manifest_store);
+    let output_file = std::fs::File::create("faux_c2pa_table.bin").unwrap();
+    let mut writer = std::io::BufWriter::new(output_file);
+    let result = table.write(&mut writer);
+    assert!(result.is_ok());
+}
