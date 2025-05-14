@@ -11,6 +11,8 @@
   - [main](#main)
 - [Documentation](#documentation)
 - [Unit Test Coverage](#unit-test-coverage)
+- [Benchmarking](#benchmarking)
+  - [Profiling](#profiling)
 - [Merging](#merging)
   - [Auto Versioning](#auto-versioning)
 - [Git Hooks](#git-hooks)
@@ -117,6 +119,41 @@ should include with:
 #[cfg(test)]
 #[path = "module_test.rs"]
 mod tests;
+```
+
+## Benchmarking
+
+This project uses `criterion` as the benchmarking framework. Criterion provides statistically sound performance measurements, including throughput estimates and confidence intervals, and works on stable Rust.
+
+To run benchmarks:
+
+```bash
+cargo bench
+```
+
+This will execute any benchmarks defined in the [c2pa-font-handler/Cargo.toml](./c2pa-font-handler/Cargo.toml) file and output performance summaries to the console. Criterion also generates detailed reports, including time distributions and trend analysis, stored in the `target/criterion` directory.
+
+> Note on Accuracy: Benchmark results can vary depending on current system load, CPU frequency scaling, and background tasks. For more stable and repeatable outcomes, run benchmarks on an idle system with consistent CPU performance settings (e.g., disabling turbo boost or using `taskset`/`cpuset` on Linux to isolate cores).
+
+### Profiling
+
+For memory profiling of benchmarks, this project supports integration with the `dhat` heap profiler. This allows tracking allocations during benchmarking runs.
+
+To profile, the only difference is how the benches are ran. For example the following will
+perform profiling of the WOFF1 benchmarks:
+
+```bash
+cargo test --profile release --bench woff1 --features="woff" -- --profile-time 3 --bench
+```
+
+And then to convert the output to a human-readable format, you can use the
+`dhat-to-flamegraph` command line tool:
+
+```bash
+# Install the dhat-to-flamegraph tool
+cargo install dhat-to-flamegraph
+# Convert the dhat output to a flamegraph
+dhat-to-flamegraph  path/to/dhat-heap.json --output path/to/dhat-heap.svg
 ```
 
 ## Merging
