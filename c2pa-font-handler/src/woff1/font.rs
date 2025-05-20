@@ -237,20 +237,24 @@ impl MutFontDataWrite for Woff1Font {
             + new_table_count as u32 * Woff1DirectoryEntry::SIZE as u32;
 
         // Iterate over the old directory and add entries to the new directory
-        self.directory.physical_order().iter().for_each(|entry| {
-            // If we have a table for the entry, add it to the new directory
-            if let Some(table) = self.tables.get(&entry.tag) {
-                let neo_entry = Woff1DirectoryEntry {
-                    tag: entry.tag,
-                    offset: running_offset,
-                    compLength: entry.compLength,
-                    origLength: entry.origLength,
-                    origChecksum: entry.origChecksum,
-                };
-                neo_directory.add_entry(neo_entry);
-                running_offset += align_to_four(table.len());
-            }
-        });
+        self.directory
+            .physical_order()
+            .iter()
+            .filter(|entry| entry.tag != FontTag::C2PA)
+            .for_each(|entry| {
+                // If we have a table for the entry, add it to the new directory
+                if let Some(table) = self.tables.get(&entry.tag) {
+                    let neo_entry = Woff1DirectoryEntry {
+                        tag: entry.tag,
+                        offset: running_offset,
+                        compLength: entry.compLength,
+                        origLength: entry.origLength,
+                        origChecksum: entry.origChecksum,
+                    };
+                    neo_directory.add_entry(neo_entry);
+                    running_offset += align_to_four(table.len());
+                }
+            });
 
         // We will need to keep up with the original checksum for the C2PA table
         // to write it later in the directory entry
