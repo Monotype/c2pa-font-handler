@@ -26,7 +26,7 @@ use super::{
     table::NamedTable,
 };
 use crate::{
-    c2pa::{C2PASupport, UpdatableC2PA},
+    c2pa::{C2PASupport, UpdatableC2PA, UpdateContentCredentialRecord},
     chunks::{ChunkPosition, ChunkReader, ChunkTypeTrait},
     compression::{CompressingWriter, DecompressingReader},
     data::Data,
@@ -563,7 +563,7 @@ impl UpdatableC2PA for Woff1Font {
 
     fn update_c2pa_record(
         &mut self,
-        record: crate::c2pa::UpdateContentCredentialRecord,
+        record: UpdateContentCredentialRecord,
     ) -> Result<(), Self::Error> {
         // Look for an entry int he table
         match self.tables.entry(FontTag::C2PA) {
