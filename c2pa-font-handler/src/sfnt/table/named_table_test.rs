@@ -330,3 +330,41 @@ fn test_named_table_generic_write() {
     let expected = vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00];
     assert_eq!(buffer, expected);
 }
+
+#[test]
+fn test_display_of_named_tables() {
+    let c2pa = NamedTable::C2PA(TableC2PA::default());
+    let generic = NamedTable::Generic(Data {
+        data: vec![0x00, 0x00, 0x00, 0x01],
+    });
+    let dsig = NamedTable::DSIG(TableDSIG {
+        version: 1,
+        numSignatures: 0,
+        flags: 0,
+        data: vec![],
+    });
+    let head = NamedTable::Head(TableHead {
+        majorVersion: 1,
+        minorVersion: 0,
+        fontRevision: 0x12345678,
+        checksumAdjustment: 0x9abcdef0,
+        magicNumber: 0x5f0f3cf5,
+        flags: 0x1234,
+        unitsPerEm: 0x00f0,
+        created: 0x0001000000000000,
+        modified: 0x0000012000000000,
+        xMin: 0,
+        yMin: 0x0009,
+        xMax: 0x0900,
+        yMax: 0x0a00,
+        macStyle: 0x1234,
+        lowestRecPPEM: 0x09f2,
+        fontDirectionHint: 0x0707,
+        indexToLocFormat: 0x0b20,
+        glyphDataFormat: 0x023d,
+    });
+    assert_eq!(format!("{c2pa}"), "C2PA");
+    assert_eq!(format!("{generic}"), "Generic(DATA)");
+    assert_eq!(format!("{dsig}"), "DSIG");
+    assert_eq!(format!("{head}"), "HEAD");
+}
