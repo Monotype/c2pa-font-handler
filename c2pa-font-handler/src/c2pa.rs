@@ -49,8 +49,7 @@ pub trait UpdatableC2PA {
     /// Error type returned from updating C2PA records
     type Error;
 
-    /// Updates a C2PA record, returning `None` if there wasn't a record before
-    /// or the previous record if there was one.
+    /// Updates the C2PA record if found, or adds it if not found.
     fn update_c2pa_record(
         &mut self,
         record: UpdateContentCredentialRecord,

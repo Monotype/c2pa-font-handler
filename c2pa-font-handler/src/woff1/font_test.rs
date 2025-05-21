@@ -638,7 +638,7 @@ fn test_update_c2pa_record() {
         .build();
     let result = woff.update_c2pa_record(c2pa_record);
     assert!(result.is_ok());
-    assert!(logs_contain("Replacing C2PA table"));
+    assert!(logs_contain("Updating C2PA table"));
 }
 
 #[test]
@@ -675,4 +675,5 @@ fn test_update_c2pa_record_invalid_c2pa_table() {
     let err = result.err().unwrap();
     // And that error should be a "Invalid C2PA table" error
     assert!(matches!(err, FontIoError::InvalidC2paTableContainer));
+    assert!(logs_contain("C2PA tag exists but is not a C2PA table"));
 }
