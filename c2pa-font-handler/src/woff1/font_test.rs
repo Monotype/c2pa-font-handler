@@ -14,17 +14,23 @@
 
 //! Tests for WOFF1 font.
 
-use std::io::{Cursor, Write};
+use std::{
+    collections::btree_map::Entry,
+    io::{Cursor, Write},
+};
 
 use super::Woff1Font;
 use crate::{
-    c2pa::{C2PASupport, ContentCredentialRecordBuilder},
+    c2pa::{
+        C2PASupport, ContentCredentialRecordBuilder, UpdatableC2PA,
+        UpdateContentCredentialRecord,
+    },
     chunks::{ChunkReader, ChunkTypeTrait},
     data::Data,
     error::FontIoError,
     magic::Magic,
     tag::FontTag,
-    woff1::{font::WoffChunkType, header::Woff1Header},
+    woff1::{font::WoffChunkType, header::Woff1Header, table::NamedTable},
     Font, FontDataRead, FontDirectory, FontTable, MutFontDataWrite,
 };
 
@@ -450,6 +456,29 @@ fn test_woff_add_c2pa_record() {
 
 #[test]
 #[tracing_test::traced_test]
+fn test_woff_update_c2pa_record_replaces_table() {
+    // Load the font data bytes
+    let font_data = include_bytes!("../../../.devtools/font_with_c2pa.woff");
+    let mut reader = std::io::Cursor::new(font_data);
+    let mut woff = Woff1Font::from_reader(&mut reader).unwrap();
+    // Check that the C2PA record was added successfully
+    assert!(woff.has_c2pa());
+    // Update the C2PA record
+    let updated_c2pa_record = UpdateContentCredentialRecord::builder()
+        .with_active_manifest_uri(
+            "https://example.com/updated_manifest.json".to_string(),
+        )
+        .build();
+    woff.update_c2pa_record(updated_c2pa_record).unwrap();
+    // Make sure we are not leaving the older table around too, but replacing it
+    let count = woff.tables.iter().filter(|t| t.0 == &FontTag::C2PA).count();
+    assert_eq!(count, 1);
+    // Check that the C2PA record was updated successfully
+    assert!(woff.has_c2pa());
+}
+
+#[test]
+#[tracing_test::traced_test]
 fn test_woff_empty_table_should_not_compress() {
     // Load the font data bytes
     let font_data = include_bytes!("../../../.devtools/font.woff");
@@ -571,4 +600,79 @@ fn test_get_c2pa_from_woff_font() {
         c2pa_record.active_manifest_uri(),
         Some("https://example.com/manifest.json")
     );
+}
+
+#[test]
+#[tracing_test::traced_test]
+fn test_update_c2pa_record_when_not_present() {
+    // Load the font data bytes
+    let font_data = include_bytes!("../../../.devtools/font.woff");
+    let mut reader = std::io::Cursor::new(font_data);
+    let mut woff = Woff1Font::from_reader(&mut reader).unwrap();
+    // Add a C2PA record to the font
+    let c2pa_record = UpdateContentCredentialRecord::builder()
+        .with_active_manifest_uri(
+            "https://example.com/manifest.json".to_string(),
+        )
+        .build();
+    // Attempt to update the C2PA record
+    let result = woff.update_c2pa_record(c2pa_record);
+    assert!(result.is_ok());
+    assert!(logs_contain("Adding C2PA table"));
+}
+
+#[test]
+#[tracing_test::traced_test]
+fn test_update_c2pa_record() {
+    // Load the signed WOFF font data bytes
+    let font_data = include_bytes!("../../../.devtools/font_with_c2pa.woff");
+    let mut reader = std::io::Cursor::new(font_data);
+    let mut woff = Woff1Font::from_reader(&mut reader).unwrap();
+    // Check that the C2PA record was added successfully
+    assert!(woff.has_c2pa());
+    // Update the C2PA record
+    let c2pa_record = UpdateContentCredentialRecord::builder()
+        .with_active_manifest_uri(
+            "https://example.com/manifest.json".to_string(),
+        )
+        .build();
+    let result = woff.update_c2pa_record(c2pa_record);
+    assert!(result.is_ok());
+    assert!(logs_contain("Replacing C2PA table"));
+}
+
+#[test]
+#[tracing_test::traced_test]
+fn test_update_c2pa_record_invalid_c2pa_table() {
+    // Load the signed WOFF font data bytes
+    let font_data = include_bytes!("../../../.devtools/font_with_c2pa.woff");
+    let mut reader = std::io::Cursor::new(font_data);
+    let mut woff = Woff1Font::from_reader(&mut reader).unwrap();
+
+    // Replace the C2PA table with an invalid table type, which is just a
+    // Generic
+    match woff.tables.entry(FontTag::C2PA) {
+        Entry::Occupied(mut entry) => {
+            // We have to go out of our way to make sure the C2PA table is
+            // listed as a Generic table, which is not the default.
+            entry.insert(NamedTable::Generic(Data::new(vec![
+                0x00, 0x00, 0x00, 0x00,
+            ])));
+        }
+        _ => panic!("C2PA table not found"),
+    }
+
+    // Update the C2PA record with an invalid table
+    let c2pa_record = UpdateContentCredentialRecord::builder()
+        .with_active_manifest_uri(
+            "https://example.com/manifest.json".to_string(),
+        )
+        .build();
+    // Attempt to update the C2PA record
+    let result = woff.update_c2pa_record(c2pa_record);
+    // Which should result in an error
+    assert!(result.is_err());
+    let err = result.err().unwrap();
+    // And that error should be a "Invalid C2PA table" error
+    assert!(matches!(err, FontIoError::InvalidC2paTableContainer));
 }

@@ -47,6 +47,9 @@ pub enum FontIoError {
     /// The magic number in the 'head' table is invalid.
     #[error("Invalid magic number in the 'head' table; expected 0x5f0f3cf5, got {0}")]
     InvalidHeadMagicNumber(u32),
+    /// The table container is invalid for a C2PA table.
+    #[error("Invalid C2PA table container")]
+    InvalidC2paTableContainer,
     /// The specified size for reading a table directory entry record is
     /// invalid.
     #[error("Invalid size for a table directory entry record, expected {expected} bytes, got {got}")]

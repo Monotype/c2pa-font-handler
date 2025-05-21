@@ -569,6 +569,7 @@ impl UpdatableC2PA for Woff1Font {
         match self.tables.entry(FontTag::C2PA) {
             // if vacant, we are good to go to insert the record
             Entry::Vacant(vacant_entry) => {
+                tracing::debug!("Adding C2PA table");
                 let mut c2pa_table = TableC2PA::default();
                 c2pa_table.update_c2pa_record(record)?;
                 vacant_entry.insert(NamedTable::C2PA(c2pa_table));
@@ -576,12 +577,15 @@ impl UpdatableC2PA for Woff1Font {
             }
             // Otherwise, we already have a record, so we need to update it
             Entry::Occupied(mut occupied_entry) => {
+                tracing::debug!("Replacing C2PA table");
                 match occupied_entry.get_mut() {
                     NamedTable::C2PA(table_c2pa) => {
                         table_c2pa.update_c2pa_record(record)?;
                         Ok(())
                     }
-                    _ => Err(FontIoError::ContentCredentialNotFound),
+                    // This technically should not happen, but we will
+                    // take it into account.
+                    _ => Err(FontIoError::InvalidC2paTableContainer),
                 }
             }
         }
