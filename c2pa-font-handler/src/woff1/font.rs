@@ -415,7 +415,7 @@ impl ChunkTypeTrait for WoffChunkType {
         match self {
             // At the moment, the private part is the only section excluded from
             // hashing
-            WoffChunkType::Private => false,
+            WoffChunkType::Header | WoffChunkType::DirectoryEntry => false,
             _ => true,
         }
     }

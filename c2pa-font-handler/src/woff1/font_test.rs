@@ -335,7 +335,7 @@ fn test_woff_font_chunk_reader_valid() {
     assert_eq!(header.length(), Woff1Header::SIZE);
     assert_eq!(header.name(), b"\x00\x00\x00W");
     assert_eq!(header.chunk_type(), &WoffChunkType::Header);
-    assert!(header.chunk_type().should_hash());
+    assert!(!header.chunk_type().should_hash());
     positions.remove(0);
 
     // Then the 2nd one should be the directory
@@ -344,7 +344,7 @@ fn test_woff_font_chunk_reader_valid() {
     assert_eq!(directory.length(), 200);
     assert_eq!(directory.name(), b"\x00\x00\x01D");
     assert_eq!(directory.chunk_type(), &WoffChunkType::DirectoryEntry);
-    assert!(directory.chunk_type().should_hash());
+    assert!(!directory.chunk_type().should_hash());
     positions.remove(0);
 
     // Other positions should be included
@@ -390,7 +390,7 @@ fn test_woff_font_chunk_reader_metadata_private() {
     assert_eq!(private.offset(), 888);
     assert_eq!(private.length(), 4);
     assert_eq!(private.chunk_type(), &WoffChunkType::Private);
-    assert!(!private.chunk_type().should_hash());
+    assert!(private.chunk_type().should_hash());
 }
 
 #[test]
