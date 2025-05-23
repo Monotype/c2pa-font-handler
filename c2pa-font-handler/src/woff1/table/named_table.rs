@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Monotype Imaging Inc.
+// Copyright 2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -12,24 +12,19 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//! Named table enumeration.
+//! Named table enumeration for WOFF fonts
+
 use std::io::{Read, Seek, Write};
 
-use super::{dsig::TableDSIG, head::TableHead, TableC2PA};
 use crate::{
-    data::Data, error::FontIoError, tag::FontTag, FontDataChecksum,
-    FontDataExactRead, FontDataWrite, FontTable,
+    data::Data, error::FontIoError, sfnt::table::TableC2PA, tag::FontTag,
+    FontDataChecksum, FontDataExactRead, FontDataWrite, FontTable,
 };
 
 /// Various types of tables by name
 pub enum NamedTable {
     /// 'C2PA' table
     C2PA(TableC2PA),
-    /// Digital Signature table
-    #[allow(clippy::upper_case_acronyms)]
-    DSIG(TableDSIG),
-    /// 'head' table
-    Head(TableHead),
     /// Generic table
     Generic(Data),
 }
@@ -38,8 +33,6 @@ impl std::fmt::Display for NamedTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             NamedTable::C2PA(_) => write!(f, "C2PA"),
-            NamedTable::DSIG(_) => write!(f, "DSIG"),
-            NamedTable::Head(_) => write!(f, "HEAD"),
             NamedTable::Generic(_) => write!(f, "Generic(DATA)"),
         }
     }
@@ -56,10 +49,6 @@ impl NamedTable {
         match *tag {
             FontTag::C2PA => TableC2PA::from_reader_exact(reader, offset, size)
                 .map(NamedTable::C2PA),
-            FontTag::DSIG => TableDSIG::from_reader_exact(reader, offset, size)
-                .map(NamedTable::DSIG),
-            FontTag::HEAD => TableHead::from_reader_exact(reader, offset, size)
-                .map(NamedTable::Head),
             _ => Data::from_reader_exact(reader, offset, size)
                 .map(NamedTable::Generic),
         }
@@ -75,8 +64,6 @@ impl FontDataWrite for NamedTable {
     ) -> Result<(), Self::Error> {
         match self {
             NamedTable::C2PA(table) => table.write(dest)?,
-            NamedTable::DSIG(table) => table.write(dest)?,
-            NamedTable::Head(table) => table.write(dest)?,
             NamedTable::Generic(table) => table.write(dest)?,
         }
         Ok(())
@@ -87,8 +74,6 @@ impl FontDataChecksum for NamedTable {
     fn checksum(&self) -> std::num::Wrapping<u32> {
         match self {
             NamedTable::C2PA(table) => table.checksum(),
-            NamedTable::DSIG(table) => table.checksum(),
-            NamedTable::Head(table) => table.checksum(),
             NamedTable::Generic(table) => table.checksum(),
         }
     }
@@ -98,8 +83,6 @@ impl FontTable for NamedTable {
     fn len(&self) -> u32 {
         match self {
             NamedTable::C2PA(table) => table.len(),
-            NamedTable::DSIG(table) => table.len(),
-            NamedTable::Head(table) => table.len(),
             NamedTable::Generic(table) => table.len(),
         }
     }
