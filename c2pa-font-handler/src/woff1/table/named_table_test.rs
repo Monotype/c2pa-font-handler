@@ -117,3 +117,13 @@ fn test_named_table_generic_write() {
     let expected = vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00];
     assert_eq!(buffer, expected);
 }
+
+#[test]
+fn test_display_of_named_tables() {
+    let c2pa = NamedTable::C2PA(TableC2PA::default());
+    let generic = NamedTable::Generic(Data {
+        data: vec![0x00, 0x00, 0x00, 0x01],
+    });
+    assert_eq!(format!("{c2pa}"), "C2PA");
+    assert_eq!(format!("{generic}"), "Generic(DATA)");
+}

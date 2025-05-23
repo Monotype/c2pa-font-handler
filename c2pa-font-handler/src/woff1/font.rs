@@ -26,7 +26,7 @@ use super::{
     table::NamedTable,
 };
 use crate::{
-    c2pa::C2PASupport,
+    c2pa::{C2PASupport, UpdatableC2PA, UpdateContentCredentialRecord},
     chunks::{ChunkPosition, ChunkReader, ChunkTypeTrait},
     compression::{CompressingWriter, DecompressingReader},
     data::Data,
@@ -237,20 +237,24 @@ impl MutFontDataWrite for Woff1Font {
             + new_table_count as u32 * Woff1DirectoryEntry::SIZE as u32;
 
         // Iterate over the old directory and add entries to the new directory
-        self.directory.physical_order().iter().for_each(|entry| {
-            // If we have a table for the entry, add it to the new directory
-            if let Some(table) = self.tables.get(&entry.tag) {
-                let neo_entry = Woff1DirectoryEntry {
-                    tag: entry.tag,
-                    offset: running_offset,
-                    compLength: entry.compLength,
-                    origLength: entry.origLength,
-                    origChecksum: entry.origChecksum,
-                };
-                neo_directory.add_entry(neo_entry);
-                running_offset += align_to_four(table.len());
-            }
-        });
+        self.directory
+            .physical_order()
+            .iter()
+            .filter(|entry| entry.tag != FontTag::C2PA)
+            .for_each(|entry| {
+                // If we have a table for the entry, add it to the new directory
+                if let Some(table) = self.tables.get(&entry.tag) {
+                    let neo_entry = Woff1DirectoryEntry {
+                        tag: entry.tag,
+                        offset: running_offset,
+                        compLength: entry.compLength,
+                        origLength: entry.origLength,
+                        origChecksum: entry.origChecksum,
+                    };
+                    neo_directory.add_entry(neo_entry);
+                    running_offset += align_to_four(table.len());
+                }
+            });
 
         // We will need to keep up with the original checksum for the C2PA table
         // to write it later in the directory entry
@@ -411,7 +415,7 @@ impl ChunkTypeTrait for WoffChunkType {
         match self {
             // At the moment, the private part is the only section excluded from
             // hashing
-            WoffChunkType::Private => false,
+            WoffChunkType::Header | WoffChunkType::DirectoryEntry => false,
             _ => true,
         }
     }
@@ -549,6 +553,43 @@ impl C2PASupport for Woff1Font {
             Entry::Occupied(entry) => {
                 entry.remove();
                 Ok(())
+            }
+        }
+    }
+}
+
+impl UpdatableC2PA for Woff1Font {
+    type Error = FontIoError;
+
+    fn update_c2pa_record(
+        &mut self,
+        record: UpdateContentCredentialRecord,
+    ) -> Result<(), Self::Error> {
+        // Look for an entry in the table
+        match self.tables.entry(FontTag::C2PA) {
+            // If the entry is vacant, insert a new C2PA table
+            Entry::Vacant(vacant_entry) => {
+                tracing::debug!("Adding C2PA table");
+                let mut c2pa_table = TableC2PA::default();
+                c2pa_table.update_c2pa_record(record)?;
+                vacant_entry.insert(NamedTable::C2PA(c2pa_table));
+                Ok(())
+            }
+            // Otherwise, we already have a record, so we need to update it
+            Entry::Occupied(mut occupied_entry) => {
+                tracing::debug!("Updating C2PA table");
+                match occupied_entry.get_mut() {
+                    NamedTable::C2PA(table_c2pa) => {
+                        table_c2pa.update_c2pa_record(record)?;
+                        Ok(())
+                    }
+                    // This technically should not happen, but we will
+                    // take it into account.
+                    other => {
+                        tracing::error!("C2PA tag exists but is not a C2PA table: found {other}");
+                        Err(FontIoError::InvalidC2paTableContainer)
+                    }
+                }
             }
         }
     }

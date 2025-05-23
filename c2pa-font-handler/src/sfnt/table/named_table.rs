@@ -34,6 +34,17 @@ pub enum NamedTable {
     Generic(Data),
 }
 
+impl std::fmt::Display for NamedTable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NamedTable::C2PA(_) => write!(f, "C2PA"),
+            NamedTable::DSIG(_) => write!(f, "DSIG"),
+            NamedTable::Head(_) => write!(f, "HEAD"),
+            NamedTable::Generic(_) => write!(f, "Generic(DATA)"),
+        }
+    }
+}
+
 impl NamedTable {
     /// Creates a new `NamedTable` from a reader.
     pub fn from_reader_exact<T: Read + Seek + ?Sized>(
