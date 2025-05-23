@@ -6,6 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org), except that â
 
 Do not manually edit this file. It will be automatically updated when a new release is published.
 
+## 0.4.3
+
+23 May 2025
+
+* C2PA-674: Ability to update C2PA record in a WOFF1 font ([#43](https://github.com/Monotype/c2pa-font-handler/pull/43))
+* C2PA-678: Add benchmarks for SFNT and WOFF1. ([#42](https://github.com/Monotype/c2pa-font-handler/pull/42))
+* C2PA-275: Only take a portion of the stream and read exact amount. ([#41](https://github.com/Monotype/c2pa-font-handler/pull/41))
+* C2PA-275: Compression for WOFF tables (mainly C2PA) ([#40](https://github.com/Monotype/c2pa-font-handler/pull/40))
+
 ## 0.4.2
 
 25 April 2025
