@@ -259,6 +259,7 @@ impl MutFontDataWrite for Woff1Font {
         // We will need to keep up with the original checksum for the C2PA table
         // to write it later in the directory entry
         let mut original_checksum = 0;
+        let mut c2pa_uncompressed_data_length = 0;
         // If we have a C2PA table, we will attempt to compress it
         let c2pa_data = self
             .tables
@@ -280,6 +281,8 @@ impl MutFontDataWrite for Woff1Font {
                     origLength: c2pa_table.length(),
                     origChecksum: original_checksum,
                 });
+                c2pa_uncompressed_data_length = c2pa_table.length();
+
                 running_offset += align_to_four(c2pa_table.compressed_length());
                 Ok::<_, FontIoError>(c2pa_table)
             })
@@ -298,9 +301,29 @@ impl MutFontDataWrite for Woff1Font {
 
         // If we have private data, update the header
         if let Some(private) = &self.private_data {
+            let private_length = private.len();
             neo_header.privOffset = running_offset;
-            neo_header.privLength = private.len();
+            neo_header.privLength = private_length;
+            running_offset += align_to_four(private_length);
         }
+
+        // Update the header with the new length of the entire file
+        neo_header.length = running_offset;
+
+        // TODO: look at this more!!!
+        // We need to update the total SFNT size, should it incorporate the
+        // compressed size of the C2PA table?
+        if c2pa_uncompressed_data_length > 0 {
+            neo_header.totalSfntSize = self.header.totalSfntSize // The original size
+                + Woff1DirectoryEntry::SIZE as u32 // Plus the size of one new directory entry
+                + c2pa_uncompressed_data_length; // The size of the uncompressed
+                                                 // data for the C2PA table
+        }
+
+        // Update the number of tables in the header, which will include the
+        // C2PA table
+        neo_header.numTables = neo_directory.entries().len() as u16;
+
         // Update ourselves with the new header and directory
         self.header = neo_header;
         self.directory = neo_directory;
