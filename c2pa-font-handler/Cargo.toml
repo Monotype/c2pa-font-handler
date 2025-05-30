@@ -24,12 +24,12 @@ edition = "2021"
 license = "Apache-2.0"
 
 [features]
-default = []
+default = ["svg-thumbnails"]
 compression = ["flate"]
 flate = ["dep:flate2"]
 png-thumbnails = ["thumbnails", "dep:tiny-skia", "tiny-skia/png", "tiny-skia/png-format", "dep:image", "image/png"]
-thumbnails = ["dep:cosmic-text", "dep:unicode-script"]
 svg-thumbnails = ["thumbnails", "dep:svg", "dep:resvg"]
+thumbnails = ["dep:cosmic-text", "dep:unicode-script"]
 woff = [ "compression" ]
 
 [dependencies]
