@@ -57,6 +57,7 @@ pub mod error;
 pub(crate) mod magic;
 pub mod sfnt;
 pub mod tag;
+pub mod thumbnail;
 pub(crate) mod utils;
 #[cfg(feature = "woff")]
 pub mod woff1;
