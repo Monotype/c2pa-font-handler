@@ -34,7 +34,9 @@
     "halfword",
     "halfwords",
     "ilog",
+    "luma",
     "mockall",
+    "Pixmap",
     "ppem",
     "repr",
     "reqs",
@@ -47,6 +49,7 @@
     "thiserror",
     "toolset",
     "usvg",
-    "xdadau"
+    "xdadau",
+    "xywh"
   ]
 }

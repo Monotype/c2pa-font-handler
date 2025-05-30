@@ -16,60 +16,28 @@
 
 use std::io::Cursor;
 
-use cosmic_text::{Buffer, FontSystem, SwashCache};
-
 use super::*;
 use crate::thumbnail::text::{create_font_system, FontSystemConfig};
 
-struct TestContext {
-    font_system: FontSystem,
-    swash_cache: SwashCache,
-    text_buffer: Buffer,
-    angle: Option<f32>,
-}
-impl TestContext {
-    fn into_parts(self) -> (FontSystem, SwashCache, Buffer, Option<f32>) {
-        (
-            self.font_system,
-            self.swash_cache,
-            self.text_buffer,
-            self.angle,
-        )
-    }
-}
-
 /// Sets up a test context with a dummy font system and swash cache.
-fn setup_cosmic_text_for_test() -> TestContext {
+fn setup_cosmic_text_for_test() -> TextFontSystemContext {
     let mut font_data =
         Cursor::new(include_bytes!("../../../.devtools/font.otf"));
-    let (text_buffer, font_system, swash_cache, angle) =
-        create_font_system(&FontSystemConfig::default(), &mut font_data)
-            .unwrap();
-    TestContext {
-        font_system,
-        swash_cache,
-        text_buffer,
-        angle,
-    }
+    create_font_system(&FontSystemConfig::default(), &mut font_data).unwrap()
 }
 
 #[test]
 #[tracing_test::traced_test]
 fn test_svg_renderer() {
     // Create a dummy font system and swash cache
-    let (mut font_system, mut swash_cache, mut text_buffer, _angle) =
-        setup_cosmic_text_for_test().into_parts();
+    let mut context = setup_cosmic_text_for_test();
 
     // Create the SVG thumbnail renderer
     let renderer =
         SvgThumbnailRenderer::new(SvgThumbnailRendererConfig::default());
 
     // Render a thumbnail using the renderer
-    let result = renderer.render_thumbnail(
-        &mut text_buffer,
-        &mut font_system,
-        &mut swash_cache,
-    );
+    let result = renderer.render_thumbnail(&mut context);
     // Check if the result is Ok
     assert!(result.is_ok());
 

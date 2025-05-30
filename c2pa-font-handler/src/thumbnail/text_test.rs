@@ -137,12 +137,14 @@ fn test_create_font_system_with_clipping() {
     let mut stream = Cursor::new(font_data);
     let result = create_font_system(&config, &mut stream);
     assert!(result.is_ok(), "Expected successful font system creation with clipping; got error: {result:?}");
-    let (buffer, _system, _cache, angle) = result.unwrap();
-    assert_eq!(Some(0.0), angle);
+    let mut context = result.unwrap();
+    assert_eq!(Some(0.0), context.angle());
+    let (_font_sysatem, _swash_cache, text_buffer) =
+        context.mut_cosmic_text_parts();
     assert!(
-        matches!(buffer.size(), (Some(_), Some(_))),
+        matches!(text_buffer.size(), (Some(_), Some(_))),
         "Expected buffer size to be set, got: {:?}",
-        buffer.size()
+        text_buffer.size()
     );
 }
 
@@ -218,7 +220,7 @@ fn test_measure_text_in_buffer() {
 #[test]
 fn test_new_cosmic_text_thumbnail_generator() {
     let mut renderer = crate::thumbnail::MockRenderer::new();
-    renderer.expect_render_thumbnail().returning(|_, _, _| {
+    renderer.expect_render_thumbnail().returning(|_| {
         Ok(crate::thumbnail::Thumbnail::new(
             b"<svg></svg>".to_vec(),
             "image/svg+xml".to_string(),
@@ -250,7 +252,7 @@ fn test_new_cosmic_text_thumbnail_generator() {
 fn test_cosmic_text_thumbnail_generator_with_font_system_config() {
     let font_system_config = FontSystemConfig::default();
     let mut renderer = crate::thumbnail::MockRenderer::new();
-    renderer.expect_render_thumbnail().returning(|_, _, _| {
+    renderer.expect_render_thumbnail().returning(|_| {
         Ok(crate::thumbnail::Thumbnail::new(
             b"<svg></svg>".to_vec(),
             "image/svg+xml".to_string(),
@@ -275,7 +277,7 @@ fn test_cosmic_text_thumbnail_generator_with_font_system_config() {
 #[test]
 fn test_new_cosmic_text_thumbnail_generator_from_path() {
     let mut renderer = crate::thumbnail::MockRenderer::new();
-    renderer.expect_render_thumbnail().returning(|_, _, _| {
+    renderer.expect_render_thumbnail().returning(|_| {
         Ok(crate::thumbnail::Thumbnail::new(
             b"<svg></svg>".to_vec(),
             "image/svg+xml".to_string(),

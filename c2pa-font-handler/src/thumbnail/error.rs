@@ -18,11 +18,10 @@
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum FontThumbnailError {
-    /*
     /// Error from the image crate
+    #[cfg(feature = "png-thumbnails")]
     #[error(transparent)]
     ImageError(#[from] image::ImageError),
-    */
     /// error from IO operations
     #[error(transparent)]
     IoError(#[from] std::io::Error),

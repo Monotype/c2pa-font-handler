@@ -24,10 +24,10 @@ edition = "2021"
 license = "Apache-2.0"
 
 [features]
-default = ["png-thumbnails", "svg-thumbnails", "woff"]
+default = []
 compression = ["flate"]
 flate = ["dep:flate2"]
-png-thumbnails = ["thumbnails", "dep:tiny-skia", "tiny-skia/png", "tiny-skia/png-format"]
+png-thumbnails = ["thumbnails", "dep:tiny-skia", "tiny-skia/png", "tiny-skia/png-format", "dep:image", "image/png"]
 thumbnails = ["dep:cosmic-text", "dep:unicode-script"]
 svg-thumbnails = ["thumbnails", "dep:svg", "dep:resvg"]
 woff = [ "compression" ]
@@ -38,6 +38,7 @@ byteorder.workspace = true
 bytes.workspace = true
 cosmic-text = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
 resvg = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
@@ -66,7 +67,7 @@ required-features = ["woff"]
 
 [[example]]
 name = "render_thumbnail"
-required-features = ["svg-thumbnails"]
+required-features = ["svg-thumbnails", "png-thumbnails"]
 
 [[bench]]
 name = "sfnt"

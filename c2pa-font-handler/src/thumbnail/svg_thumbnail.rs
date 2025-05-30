@@ -14,14 +14,13 @@
 
 //! Thumbnail handling for C2PA fonts using SVG format.
 
-use cosmic_text::{Buffer, FontSystem, SwashCache};
 use resvg::usvg::{Options, Tree};
 use svg::{
     node::element::{Group, Style},
     Document, Node,
 };
 
-use super::Renderer;
+use super::{text::TextFontSystemContext, Renderer};
 use crate::thumbnail::error::FontThumbnailError;
 
 /// Trait for rounding values to a specified precision.
@@ -123,14 +122,14 @@ impl Default for SvgThumbnailRenderer {
 impl Renderer for SvgThumbnailRenderer {
     fn render_thumbnail(
         &self,
-        text_buffer: &mut Buffer,
-        font_system: &mut FontSystem,
-        swash_cache: &mut SwashCache,
+        text_system_context: &mut TextFontSystemContext,
     ) -> Result<super::Thumbnail, super::error::FontThumbnailError> {
         let precision = self.config.default_precision;
         tracing::trace!("Rendering SVG thumbnail with precision: {precision}");
         let mut svg_doc = Document::new();
         let mut tmp_doc = Document::new();
+        let (font_system, swash_cache, text_buffer) =
+            text_system_context.mut_cosmic_text_parts();
         for layout_run in text_buffer.layout_runs() {
             let mut group = Group::new();
             // Add a style to have the fill as black and the stroke to none

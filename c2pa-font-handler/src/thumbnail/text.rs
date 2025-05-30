@@ -35,6 +35,38 @@ use super::{
     error::FontThumbnailError, ReadSeek, Renderer, ThumbnailGenerator,
 };
 
+/// Context for the text font system, which includes the font system, swash
+/// cache, text buffer, and the angle of the font if it is italic.
+#[derive(Debug)]
+pub struct TextFontSystemContext {
+    /// The font system to use for rendering text
+    pub font_system: FontSystem,
+    /// The swash cache to use for rendering text
+    pub swash_cache: SwashCache,
+    /// The text buffer to use for rendering text
+    pub text_buffer: Buffer,
+    /// The angle of the font, if it is italic
+    pub angle: Option<f32>,
+}
+
+impl TextFontSystemContext {
+    /// Get the angle of the font if it is italic, otherwise None
+    pub fn angle(&self) -> Option<f32> {
+        self.angle
+    }
+
+    /// Get the cosmic-text parts from the context
+    pub fn mut_cosmic_text_parts(
+        &mut self,
+    ) -> (&mut FontSystem, &mut SwashCache, &mut Buffer) {
+        (
+            &mut self.font_system,
+            &mut self.swash_cache,
+            &mut self.text_buffer,
+        )
+    }
+}
+
 /// A thumbnail generator that uses the cosmic-text crate to render text
 /// thumbnails. This generator is designed to create thumbnails for fonts
 /// without any fallback fonts, which is useful for C2PA operations where
@@ -72,13 +104,8 @@ impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
         &self,
         reader: &mut (dyn ReadSeek),
     ) -> Result<super::Thumbnail, super::error::FontThumbnailError> {
-        let (mut text_buffer, mut font_system, mut swash_cache, _angle) =
-            create_font_system(&self.font_system_config, reader)?;
-        self.renderer.render_thumbnail(
-            &mut text_buffer,
-            &mut font_system,
-            &mut swash_cache,
-        )
+        let mut context = create_font_system(&self.font_system_config, reader)?;
+        self.renderer.render_thumbnail(&mut context)
     }
 }
 
@@ -142,6 +169,7 @@ impl From<Arc<Font>> for FontNameInfo {
 }
 
 /// Information about a loaded font, including its ID and attributes.
+#[derive(Debug)]
 struct LoadedFont<'a> {
     /// The ID of the loaded font in the font database
     id: ID,
@@ -288,15 +316,14 @@ impl Default for FontSystemConfig<'static> {
 pub fn create_font_system<R: Read + Seek + ?Sized>(
     config: &FontSystemConfig,
     stream: &mut R,
-) -> Result<(Buffer, FontSystem, SwashCache, Option<f32>), FontThumbnailError> {
+) -> Result<TextFontSystemContext, FontThumbnailError> {
     let font_data =
         std::io::Read::bytes(stream).collect::<std::io::Result<Vec<u8>>>()?;
     // Create a local font database, which only contains the font we loaded
     let mut font_db = Database::new();
     // Load the given font file into the font database, getting the ID of the
     // font to use with the font system
-    let LoadedFont { id: font_id, attrs } =
-        load_font_data(&mut font_db, font_data)?;
+    let loaded_font: LoadedFont = load_font_data(&mut font_db, font_data)?;
 
     // And build a font system from this local database
     let mut font_system =
@@ -307,7 +334,7 @@ pub fn create_font_system<R: Read + Seek + ?Sized>(
         );
     // Get reference to the font from the font system
     let f = font_system
-        .get_font(font_id)
+        .get_font(loaded_font.id)
         .ok_or(FontThumbnailError::NoFontFound)?;
     // Grab the potential italic angle of the font to calculate the width
     // of the slant later
@@ -328,13 +355,19 @@ pub fn create_font_system<R: Read + Seek + ?Sized>(
     // Find a buffer that fits the width
     let buffer = get_buffer_with_pt_size_fits_width(
         &full_name,
-        attrs,
+        loaded_font.attrs.clone(),
         &mut font_system,
         config,
         |x| (max_height * config.line_height_factor * x).ceil(),
     )?;
 
-    Ok((buffer, font_system, swash_cache, angle))
+    //Ok((buffer, font_system, swash_cache, angle))
+    Ok(TextFontSystemContext {
+        font_system,
+        swash_cache,
+        text_buffer: buffer,
+        angle,
+    })
 }
 
 /// Finds the point size that fits the width and creates a buffer with the text

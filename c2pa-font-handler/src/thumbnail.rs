@@ -20,15 +20,22 @@ use std::{
 };
 
 pub(crate) mod error;
+#[cfg(feature = "png-thumbnails")]
+pub(crate) mod png_thumbnail;
+#[cfg(feature = "png-thumbnails")]
+pub use png_thumbnail::{PngThumbnailRenderer, PngThumbnailRendererConfig};
+
 #[cfg(feature = "svg-thumbnails")]
 pub(crate) mod svg_thumbnail;
 #[cfg(feature = "svg-thumbnails")]
 pub use svg_thumbnail::{SvgThumbnailRenderer, SvgThumbnailRendererConfig};
 
 pub(crate) mod text;
+use text::TextFontSystemContext;
 pub use text::{CosmicTextThumbnailGenerator, FontSystemConfig};
 
 /// Represents a thumbnail.
+#[derive(Debug)]
 pub struct Thumbnail {
     /// The raw data of the thumbnail.
     pub(crate) data: Vec<u8>,
@@ -66,9 +73,7 @@ pub trait Renderer {
     /// Returns an error if the thumbnail could not be rendered.
     fn render_thumbnail(
         &self,
-        text_buffer: &mut cosmic_text::Buffer,
-        font_system: &mut cosmic_text::FontSystem,
-        swash_cache: &mut cosmic_text::SwashCache,
+        text_system_context: &mut TextFontSystemContext,
     ) -> Result<Thumbnail, error::FontThumbnailError>;
 }
 

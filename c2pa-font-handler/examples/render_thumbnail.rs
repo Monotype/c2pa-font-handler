@@ -15,7 +15,8 @@
 //! Example of generating a thumbnail for a font.
 
 use c2pa_font_handler::thumbnail::{
-    CosmicTextThumbnailGenerator, SvgThumbnailRenderer, ThumbnailGenerator,
+    CosmicTextThumbnailGenerator, PngThumbnailRenderer, SvgThumbnailRenderer,
+    ThumbnailGenerator,
 };
 use clap::{Parser, ValueEnum};
 
@@ -60,9 +61,8 @@ async fn main() -> Result<(), anyhow::Error> {
             Box::new(CosmicTextThumbnailGenerator::new(renderer))
         }
         ThumbnailType::Png => {
-            return Err(anyhow::anyhow!(
-                "PNG thumbnails are not supported yet"
-            ));
+            let renderer = Box::new(PngThumbnailRenderer::default());
+            Box::new(CosmicTextThumbnailGenerator::new(renderer))
         }
     };
     let thumbnail = generator
