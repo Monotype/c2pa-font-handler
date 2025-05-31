@@ -139,7 +139,7 @@ fn test_create_font_system_with_clipping() {
     assert!(result.is_ok(), "Expected successful font system creation with clipping; got error: {result:?}");
     let mut context = result.unwrap();
     assert_eq!(Some(0.0), context.angle());
-    let (_font_sysatem, _swash_cache, text_buffer) =
+    let (_font_system, _swash_cache, text_buffer) =
         context.mut_cosmic_text_parts();
     assert!(
         matches!(text_buffer.size(), (Some(_), Some(_))),
