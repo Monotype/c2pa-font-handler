@@ -14,14 +14,21 @@
 
 //! Thumbnail handling for C2PA fonts using PNG format.
 
-use image::Pixel;
 use tiny_skia::Pixmap;
 
 use super::{text::TextFontSystemContext, Renderer};
 use crate::thumbnail::error::FontThumbnailError;
 
-/// Get a Skia paint for the color, which is a solid color shader, and not using
-/// anti-aliasing
+/// Get a Skia paint object for the given color.
+///
+/// This function converts a `cosmic_text::Color` into a `tiny_skia::Paint`
+/// object, which can be used for drawing operations in the thumbnail renderer.
+///
+/// # Remarks
+/// The `tiny_skia::Paint` object is configured with a solid color shader,
+/// anti-aliasing enabled, and a blend mode set to `Color`. The color is
+/// converted from the `cosmic_text::Color` to a `tiny_skia::Color` using
+/// the `as_rgba_tuple` method, which provides the RGBA components of the color.
 fn get_skia_paint_for_color<'a>(
     color: cosmic_text::Color,
 ) -> tiny_skia::Paint<'a> {
@@ -84,7 +91,7 @@ impl PngThumbnailRenderer {
     /// The MIME type for PNG images
     const MIME_TYPE: &'static str = "image/png";
 
-    /// Create a new SVG thumbnail renderer with the given configuration.
+    /// Create a new PNG thumbnail renderer with the given configuration.
     pub fn new(config: PngThumbnailRendererConfig) -> Self {
         Self { config }
     }
@@ -155,8 +162,12 @@ impl Renderer for PngThumbnailRenderer {
 
         // The total width will be our specified width + the width from the
         // italic angle. QUESTION: Should not the `cosmic-text` library
-        // really already include this in the           width
-        // calculation? Are we doing something wrong?
+        // really already include this in the width calculation? Are we doing
+        // something wrong?
+        // TODO: Investigate whether `cosmic-text` library already includes
+        // the italic angle in the width calculation. Verify if this
+        // additional calculation is necessary or if it indicates a potential
+        // issue.
         let width = width + width_italic_buffer + offset as f32;
 
         // Create a new pixel map for the main text
@@ -203,26 +214,19 @@ impl Renderer for PngThumbnailRenderer {
         // Now use the `image` crate to save the final image as a PNG as
         // grayscale, because as of now, `tiny-skia` does not support
         // saving as PNG with grayscale
-        let mut total_img = image::GrayImage::new(width as u32, height as u32);
-        for x in 0..total_img.width() {
-            for y in 0..total_img.height() {
-                if let Some(pixel) = final_img.pixel(x, y) {
-                    let rgb = [
-                        pixel.red(),
-                        pixel.green(),
-                        pixel.blue(),
-                        pixel.alpha(),
-                    ];
-                    let rgb: image::Rgba<u8> = *image::Rgba::from_slice(&rgb);
-                    total_img.put_pixel(x, y, rgb.to_luma());
-                } else {
-                    return Err(FontThumbnailError::FailedToGetPixel { x, y });
-                }
-            }
-        }
+        // Convert the Pixmap to an RgbaImage
+        let rgba_image = image::RgbaImage::from_raw(
+            final_img.width(),
+            final_img.height(),
+            final_img.data().to_vec(),
+        )
+        .ok_or(FontThumbnailError::FailedToCreatePixmap)?;
+        // Convert the RgbaImage to grayscale
+        let gray_image =
+            image::DynamicImage::ImageRgba8(rgba_image).grayscale();
         let mut png_buffer = Vec::new();
         let mut png_cursor = std::io::Cursor::new(&mut png_buffer);
-        total_img.write_to(&mut png_cursor, image::ImageFormat::Png)?;
+        gray_image.write_to(&mut png_cursor, image::ImageFormat::Png)?;
         Ok(super::Thumbnail::new(
             png_buffer,
             Self::MIME_TYPE.to_string(),

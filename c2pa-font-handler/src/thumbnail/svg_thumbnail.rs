@@ -217,8 +217,14 @@ impl Renderer for SvgThumbnailRenderer {
         // bounding box
         let svg_str = tmp_doc.to_string();
         // Generate the SVG tree from the string
-        let tree = Tree::from_str(&svg_str, &Options::default())
-            .map_err(|_e| FontThumbnailError::FailedToCreateSvgTree(svg_str))?;
+        let tree =
+            Tree::from_str(&svg_str, &Options::default()).map_err(|e| {
+                tracing::trace!(
+                    "Failed to create SVG tree from string: {svg_str}"
+                );
+                tracing::error!("Failed to create SVG tree with error: {e}");
+                FontThumbnailError::FailedToCreateSvgTree(svg_str)
+            })?;
         // Round the bounding box outwards and then convert it to a rect
         let bounding_box = tree
             .root()
