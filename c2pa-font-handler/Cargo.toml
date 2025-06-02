@@ -74,6 +74,11 @@ name = "sfnt"
 harness = false
 
 [[bench]]
+name = "thumbnails"
+required-features = ["svg-thumbnails", "png-thumbnails"]
+harness = false
+
+[[bench]]
 name = "woff1"
 required-features = ["woff"]
 harness = false
