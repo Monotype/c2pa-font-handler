@@ -24,25 +24,36 @@ edition = "2021"
 license = "Apache-2.0"
 
 [features]
-default = []
-flate = ["dep:flate2"]
+default = ["svg-thumbnails"]
 compression = ["flate"]
+flate = ["dep:flate2"]
+png-thumbnails = ["thumbnails", "dep:tiny-skia", "tiny-skia/png", "tiny-skia/png-format", "dep:image", "image/png"]
+svg-thumbnails = ["thumbnails", "dep:svg", "dep:resvg"]
+thumbnails = ["dep:cosmic-text", "dep:unicode-script"]
 woff = [ "compression" ]
 
 [dependencies]
 anyhow.workspace = true
 byteorder.workspace = true
 bytes.workspace = true
+cosmic-text = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
+resvg = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
+svg = { workspace = true, optional = true}
 thiserror.workspace = true
+tiny-skia = { workspace = true, optional = true }
 tracing.workspace = true
+unicode-script = { workspace = true, optional = true }
 
 [dev-dependencies]
 clap.workspace = true
 criterion.workspace = true
 dhat = {version = "0.3.3" }
+mockall.workspace = true
+regex.workspace = true
 tokio.workspace = true
 tracing-subscriber.workspace = true
 tracing-test.workspace = true
@@ -54,8 +65,17 @@ workspace = true
 name = "woff1"
 required-features = ["woff"]
 
+[[example]]
+name = "render_thumbnail"
+required-features = ["svg-thumbnails", "png-thumbnails"]
+
 [[bench]]
 name = "sfnt"
+harness = false
+
+[[bench]]
+name = "thumbnails"
+required-features = ["svg-thumbnails", "png-thumbnails"]
 harness = false
 
 [[bench]]
