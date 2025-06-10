@@ -31,7 +31,9 @@ use crate::{
     compression::{CompressingWriter, DecompressingReader},
     data::Data,
     error::FontIoError,
-    sfnt::table::TableC2PA,
+    sfnt::{
+        directory::SfntDirectoryEntry, header::SfntHeader, table::TableC2PA,
+    },
     tag::FontTag,
     utils::align_to_four,
     Font, FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
@@ -266,6 +268,7 @@ impl MutFontDataWrite for Woff1Font {
             .map(|c2pa| {
                 original_checksum = c2pa.checksum().0;
                 let mut data_to_compress = Vec::new();
+                tracing::warn!("Uncompressed C2PA table size: {}", c2pa.len());
                 c2pa.write(&mut data_to_compress)?;
                 let c2pa_table = Self::optimize_table_data(
                     &mut Cursor::new(data_to_compress),
@@ -309,10 +312,10 @@ impl MutFontDataWrite for Woff1Font {
         neo_header.length = running_offset;
 
         neo_header.totalSfntSize = {
-            let mut total_sfnt_size = Woff1Header::SIZE as u32;
-            total_sfnt_size += (neo_directory.entries().len()
-                * Woff1DirectoryEntry::SIZE)
-                as u32;
+            let mut total_sfnt_size = SfntHeader::SIZE as u32; // Size of SFNT header
+            total_sfnt_size +=
+                new_table_count as u32 * SfntDirectoryEntry::SIZE as u32; // Size of table record (directory of font tables)
+                                                                          // Add the size of each table in the directory
             for table in neo_directory.entries() {
                 total_sfnt_size += align_to_four(table.origLength);
             }
@@ -322,7 +325,7 @@ impl MutFontDataWrite for Woff1Font {
 
         // Update the number of tables in the header, which will include the
         // C2PA table
-        neo_header.numTables = neo_directory.entries().len() as u16;
+        neo_header.numTables = new_table_count;
 
         // Update ourselves with the new header and directory
         self.header = neo_header;
