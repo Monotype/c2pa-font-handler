@@ -268,7 +268,6 @@ impl MutFontDataWrite for Woff1Font {
             .map(|c2pa| {
                 original_checksum = c2pa.checksum().0;
                 let mut data_to_compress = Vec::new();
-                tracing::warn!("Uncompressed C2PA table size: {}", c2pa.len());
                 c2pa.write(&mut data_to_compress)?;
                 let c2pa_table = Self::optimize_table_data(
                     &mut Cursor::new(data_to_compress),
@@ -319,7 +318,6 @@ impl MutFontDataWrite for Woff1Font {
             for table in neo_directory.entries() {
                 total_sfnt_size += align_to_four(table.origLength);
             }
-            tracing::trace!("New total SFNT size: {total_sfnt_size}",);
             total_sfnt_size
         };
 
