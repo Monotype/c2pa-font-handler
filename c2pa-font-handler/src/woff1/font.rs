@@ -31,7 +31,9 @@ use crate::{
     compression::{CompressingWriter, DecompressingReader},
     data::Data,
     error::FontIoError,
-    sfnt::table::TableC2PA,
+    sfnt::{
+        directory::SfntDirectoryEntry, header::SfntHeader, table::TableC2PA,
+    },
     tag::FontTag,
     utils::align_to_four,
     Font, FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
@@ -280,6 +282,7 @@ impl MutFontDataWrite for Woff1Font {
                     origLength: c2pa_table.length(),
                     origChecksum: original_checksum,
                 });
+
                 running_offset += align_to_four(c2pa_table.compressed_length());
                 Ok::<_, FontIoError>(c2pa_table)
             })
@@ -298,9 +301,30 @@ impl MutFontDataWrite for Woff1Font {
 
         // If we have private data, update the header
         if let Some(private) = &self.private_data {
+            let private_length = private.len();
             neo_header.privOffset = running_offset;
-            neo_header.privLength = private.len();
+            neo_header.privLength = private_length;
+            running_offset += align_to_four(private_length);
         }
+
+        // Update the header with the new length of the entire file
+        neo_header.length = running_offset;
+
+        neo_header.totalSfntSize = {
+            let mut total_sfnt_size = SfntHeader::SIZE as u32; // Size of SFNT header
+            total_sfnt_size +=
+                new_table_count as u32 * SfntDirectoryEntry::SIZE as u32; // Size of table record (directory of font tables)
+                                                                          // Add the size of each table in the directory
+            for table in neo_directory.entries() {
+                total_sfnt_size += align_to_four(table.origLength);
+            }
+            total_sfnt_size
+        };
+
+        // Update the number of tables in the header, which will include the
+        // C2PA table
+        neo_header.numTables = new_table_count;
+
         // Update ourselves with the new header and directory
         self.header = neo_header;
         self.directory = neo_directory;
