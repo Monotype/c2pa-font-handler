@@ -22,7 +22,7 @@ use std::{
 
 use crate::{
     error::FontIoError, utils, FontDataChecksum, FontDataExactRead,
-    FontDataWrite, FontTable,
+    FontDataWrite, FontTable, FontTableReader,
 };
 
 /// Generic data structure for reading and writing data (e.g. OTF/WOFF1 tables).
@@ -45,6 +45,13 @@ impl Data {
     }
 }
 
+impl<'a> FontTableReader<'a> for Data {
+    type Error = FontIoError;
+
+    fn get_reader(&'a self) -> Result<impl Read + Seek + 'a, Self::Error> {
+        Ok(std::io::Cursor::new(self.data.as_slice()))
+    }
+}
 /*
 impl<'a> Data {
     pub fn reader(&'a self) -> impl Read + Seek + 'a {

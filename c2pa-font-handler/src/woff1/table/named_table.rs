@@ -19,6 +19,7 @@ use std::io::{Read, Seek, Write};
 use crate::{
     data::Data, error::FontIoError, sfnt::table::TableC2PA, tag::FontTag,
     FontDataChecksum, FontDataExactRead, FontDataWrite, FontTable,
+    FontTableReader,
 };
 
 /// Various types of tables by name
@@ -34,6 +35,19 @@ impl std::fmt::Display for NamedTable {
         match self {
             NamedTable::C2PA(_) => write!(f, "C2PA"),
             NamedTable::Generic(_) => write!(f, "Generic(DATA)"),
+        }
+    }
+}
+
+impl<'a> FontTableReader<'a> for NamedTable {
+    type Error = FontIoError;
+
+    fn get_reader(&'a self) -> Result<impl Read + Seek + 'a, Self::Error> {
+        match self {
+            NamedTable::C2PA(_table) => {
+                Err(FontIoError::InvalidC2paTableContainer)
+            }
+            NamedTable::Generic(table) => table.get_reader(),
         }
     }
 }

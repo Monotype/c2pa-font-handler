@@ -52,7 +52,7 @@ pub struct Woff1Font {
 impl Woff1Font {
     /// Read and decompress a table from the WOFF1 font, for the
     /// given directory entry.
-    fn decompress_table<R: Read + Seek + ?Sized>(
+    pub(crate) fn decompress_table<R: Read + Seek + ?Sized>(
         entry: &Woff1DirectoryEntry,
         reader: &mut R,
     ) -> Result<NamedTable, FontIoError> {
