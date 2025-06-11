@@ -77,6 +77,9 @@ pub enum FontIoError {
     /// An error occurred while generating a string from UTF-8 bytes.
     #[error("Error occurred while generating a string from UTF-8 bytes: {0}")]
     StringFromUtf8(#[from] std::string::FromUtf8Error),
+    /// The table associated with the tag was not found.
+    #[error("The font table was not found for tag: {0}")]
+    TableNotFound(FontTag),
     /// When determining the type of font, the magic number was not recognized.
     #[error("An unknown magic number was encountered: {0}")]
     UnknownMagic(u32),

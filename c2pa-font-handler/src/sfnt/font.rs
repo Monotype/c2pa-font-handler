@@ -48,6 +48,68 @@ pub struct SfntFont {
     tables: BTreeMap<FontTag, NamedTable>,
 }
 
+#[cfg(feature = "woff")]
+impl TryFrom<crate::woff1::font::Woff1Font> for SfntFont {
+    type Error = FontIoError;
+
+    fn try_from(
+        woff: crate::woff1::font::Woff1Font,
+    ) -> Result<Self, Self::Error> {
+        use std::collections::BTreeMap;
+
+        use crate::{
+            sfnt::table::NamedTable as SfntNamedTable,
+            woff1::table::NamedTable as WoffNamedTable,
+        };
+
+        // Copy over fields as appropriate (you may want to copy more fields)
+        let sfnt_header = SfntHeader {
+            sfntVersion: woff.header.flavor.try_into()?,
+            numTables: woff.directory.entries().len() as u16,
+            ..Default::default()
+        };
+        // You may want to set searchRange, entrySelector, rangeShift here as
+        // well
+
+        let mut sfnt_directory = SfntDirectory::new();
+        let mut tables = BTreeMap::new();
+
+        for entry in woff.directory.entries() {
+            // Create a new directory entry for the SFNT font
+            let sfnt_entry = SfntDirectoryEntry {
+                tag: entry.tag,
+                offset: entry.offset,
+                checksum: entry.origChecksum,
+                length: entry.origLength,
+            };
+            sfnt_directory.add_entry(sfnt_entry);
+
+            // Get the table from the WOFF font
+            let woff_table = woff
+                .table(&entry.tag)
+                .ok_or(FontIoError::TableNotFound(entry.tag))?;
+
+            // If the table was compressed in WOFF, decompress it
+            let sfnt_table = match woff_table {
+                WoffNamedTable::C2PA(table) => {
+                    SfntNamedTable::C2PA(table.clone())
+                }
+                WoffNamedTable::Generic(table) => {
+                    SfntNamedTable::Generic(table.clone())
+                } // Add other variants as needed
+            };
+
+            tables.insert(entry.tag, sfnt_table);
+        }
+
+        Ok(Self {
+            header: sfnt_header,
+            directory: sfnt_directory,
+            tables,
+        })
+    }
+}
+
 impl FontDataRead for SfntFont {
     type Error = FontIoError;
 

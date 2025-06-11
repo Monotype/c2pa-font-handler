@@ -27,7 +27,7 @@ use crate::{
 
 /// Generic data structure for reading and writing data (e.g. OTF/WOFF1 tables).
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Data {
     /// The data
     pub(crate) data: Vec<u8>,
@@ -44,6 +44,14 @@ impl Data {
         self.data = data;
     }
 }
+
+/*
+impl<'a> Data {
+    pub fn reader(&'a self) -> impl Read + Seek + 'a {
+        std::io::Cursor::new(self.data.as_slice())
+    }
+}
+*/
 
 impl FontDataExactRead for Data {
     type Error = FontIoError;
