@@ -454,16 +454,32 @@ impl TryFrom<crate::woff1::font::Woff1Font> for SfntFont {
             FontTableReader,
         };
 
+        let num_tables = woff
+            .directory
+            .entries()
+            .iter()
+            .filter(|e| e.tag != FontTag::C2PA)
+            .count() as u16;
+
+        // We must have at least one table to convert to SFNT
+        if num_tables == 0 {
+            return Err(FontIoError::NoTablesFound);
+        }
+
+        // Highest power of 2 <= num_tables
+        let max_power = 2_u16.pow((num_tables as f32).log2().floor() as u32);
+
+        let search_range = max_power * 16;
+        let entry_selector = (max_power as f32).log2() as u16;
+        let range_shift = num_tables * 16 - search_range;
+
         // Copy over fields as appropriate
         let sfnt_header = SfntHeader {
             sfntVersion: woff.header.flavor.try_into()?,
-            numTables: woff
-                .directory
-                .entries()
-                .iter()
-                .filter(|e| e.tag != FontTag::C2PA)
-                .count() as u16,
-            ..Default::default()
+            numTables: num_tables,
+            entrySelector: entry_selector,
+            rangeShift: range_shift,
+            searchRange: search_range,
         };
         // Question: Do we care about searchRAnge, entrySelector, and
         // rangeShift?  The WOFF spec doesn't define these, so we don't have

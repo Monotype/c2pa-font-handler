@@ -71,6 +71,9 @@ pub enum FontIoError {
     /// The font table is truncated.
     #[error("The font table is truncated: {0}")]
     LoadTableTruncated(FontTag),
+    /// There were no tables found in the font.
+    #[error("No tables were found in the font.")]
+    NoTablesFound,
     /// Save errors.
     #[error("Error saving the font: {0}")]
     SaveError(#[from] FontSaveError),
