@@ -48,105 +48,6 @@ pub struct SfntFont {
     tables: BTreeMap<FontTag, NamedTable>,
 }
 
-#[cfg(feature = "woff")]
-impl TryFrom<crate::woff1::font::Woff1Font> for SfntFont {
-    type Error = FontIoError;
-
-    fn try_from(
-        woff: crate::woff1::font::Woff1Font,
-    ) -> Result<Self, Self::Error> {
-        use std::collections::BTreeMap;
-
-        use crate::{
-            sfnt::table::NamedTable as SfntNamedTable,
-            woff1::table::NamedTable as WoffNamedTable,
-        };
-
-        // Copy over fields as appropriate (you may want to copy more fields)
-        let sfnt_header = SfntHeader {
-            sfntVersion: woff.header.flavor.try_into()?,
-            numTables: woff
-                .directory
-                .entries()
-                .iter()
-                .filter(|e| e.tag != FontTag::C2PA)
-                .count() as u16,
-            ..Default::default()
-        };
-        // You may want to set searchRange, entrySelector, rangeShift here as
-        // well
-
-        let mut sfnt_directory = SfntDirectory::new();
-        let mut tables = BTreeMap::new();
-
-        for entry in woff.directory.entries() {
-            // Create a new directory entry for the SFNT font
-
-            use crate::FontTableReader;
-            let sfnt_entry = SfntDirectoryEntry {
-                tag: entry.tag,
-                offset: entry.offset,
-                checksum: entry.origChecksum,
-                length: entry.origLength,
-            };
-            sfnt_directory.add_entry(sfnt_entry);
-
-            // Get the table from the WOFF font
-            let woff_table = woff
-                .table(&entry.tag)
-                .ok_or(FontIoError::TableNotFound(entry.tag))?;
-
-            // If the table was compressed in WOFF, decompress it
-            match woff_table {
-                WoffNamedTable::Generic(table) => {
-                    use crate::woff1::{
-                        directory::Woff1DirectoryEntry, font::Woff1Font,
-                    };
-
-                    // Check if the table is compressed
-                    if entry.compLength < entry.origLength {
-                        // This is a compressed table, decompress it
-                        let mut table_reader = table.get_reader()?;
-                        let tmp_entry = Woff1DirectoryEntry {
-                            tag: entry.tag,
-                            offset: 0,
-                            origLength: entry.origLength,
-                            origChecksum: entry.origChecksum,
-                            compLength: entry.compLength,
-                        };
-                        let sfnt_table = match Woff1Font::decompress_table(
-                            &tmp_entry,
-                            &mut table_reader,
-                        )? {
-                            WoffNamedTable::C2PA(_c2pa) => todo!(),
-                            WoffNamedTable::Generic(data) => {
-                                SfntNamedTable::Generic(data)
-                            }
-                        };
-                        tables.insert(entry.tag, sfnt_table);
-                    } else {
-                        // This is an uncompressed table, just use it as is
-                        let sfnt_table = SfntNamedTable::Generic(table.clone());
-                        tables.insert(entry.tag, sfnt_table);
-                    }
-                } // Add other variants as needed
-                WoffNamedTable::C2PA(_table) => {
-                    // C2PA table belongs to the WOFF font, so no need to add it
-                    // to the SFNT font.
-                    tracing::trace!("WOFF C2PA will not be added to SFNT font");
-                    //SfntNamedTable::C2PA(table.clone())
-                }
-            };
-        }
-
-        Ok(Self {
-            header: sfnt_header,
-            directory: sfnt_directory,
-            tables,
-        })
-    }
-}
-
 impl FontDataRead for SfntFont {
     type Error = FontIoError;
 
@@ -530,6 +431,122 @@ impl ChunkReader for SfntFont {
             }
         }
         Ok(positions)
+    }
+}
+
+#[cfg(feature = "woff")]
+impl TryFrom<crate::woff1::font::Woff1Font> for SfntFont {
+    type Error = FontIoError;
+
+    fn try_from(
+        woff: crate::woff1::font::Woff1Font,
+    ) -> Result<Self, Self::Error> {
+        // These 'use' are done here because of the gated feature for WOFF
+        // support.
+        use std::collections::BTreeMap;
+
+        use crate::{
+            sfnt::table::NamedTable as SfntNamedTable,
+            woff1::{
+                directory::Woff1DirectoryEntry, font::Woff1Font,
+                table::NamedTable as WoffNamedTable,
+            },
+            FontTableReader,
+        };
+
+        // Copy over fields as appropriate
+        let sfnt_header = SfntHeader {
+            sfntVersion: woff.header.flavor.try_into()?,
+            numTables: woff
+                .directory
+                .entries()
+                .iter()
+                .filter(|e| e.tag != FontTag::C2PA)
+                .count() as u16,
+            ..Default::default()
+        };
+        // Question: Do we care about searchRAnge, entrySelector, and
+        // rangeShift?  The WOFF spec doesn't define these, so we don't have
+        // them to set here, but we could calculate.
+
+        // We will build up the SFNT directory and tables from the WOFF
+        let mut sfnt_directory = SfntDirectory::new();
+        let mut tables = BTreeMap::new();
+
+        // Iterate over the WOFF directory entries and convert them to SFNT
+        for entry in woff.directory.entries() {
+            // Create a new directory entry for the SFNT font
+            let sfnt_entry = SfntDirectoryEntry {
+                tag: entry.tag,
+                offset: entry.offset, /* This offset is invalid and but when
+                                       * Sfnt is written it will update
+                                       * correctly. */
+                checksum: entry.origChecksum, /* This should still be valid,
+                                               * should we we recalculate it? */
+                length: entry.origLength,
+            };
+            // Add the entry to the SFNT directory
+            sfnt_directory.add_entry(sfnt_entry);
+
+            // Get the table from the WOFF font
+            let woff_table = woff
+                .table(&entry.tag)
+                .ok_or(FontIoError::TableNotFound(entry.tag))?;
+
+            // If the table was compressed in WOFF, decompress it
+            match woff_table {
+                WoffNamedTable::Generic(table) => {
+                    // Check if the table is compressed
+                    if entry.compLength < entry.origLength {
+                        // We will grab a reader for the table data
+                        // and decompress it into the SFNT format.
+                        let mut table_reader = table.get_reader()?;
+                        // We will setup a temporary entry to work with the
+                        // reader, since the offset is 0
+                        // from a reader on the table data.
+                        let tmp_entry = Woff1DirectoryEntry {
+                            tag: entry.tag,
+                            offset: 0,
+                            origLength: entry.origLength,
+                            origChecksum: entry.origChecksum,
+                            compLength: entry.compLength,
+                        };
+                        // Decompress the table data into the SFNT format
+                        let sfnt_table =
+                            match Woff1Font::decompress_table_from_stream(
+                                &tmp_entry,
+                                &mut table_reader,
+                            )? {
+                                WoffNamedTable::C2PA(_c2pa) => {
+                                    tracing::error!("Invalid state, found C2PA table when working with a generic WOFF table");
+                                    return Err(
+                                        FontIoError::InvalidC2paTableContainer,
+                                    ); // TODO: should be a more specific error
+                                }
+                                WoffNamedTable::Generic(data) => {
+                                    SfntNamedTable::Generic(data)
+                                }
+                            };
+                        tables.insert(entry.tag, sfnt_table);
+                    } else {
+                        // This is an uncompressed table, just use it as is
+                        let sfnt_table = SfntNamedTable::Generic(table.clone());
+                        tables.insert(entry.tag, sfnt_table);
+                    }
+                } // Add other variants as needed
+                WoffNamedTable::C2PA(_table) => {
+                    // C2PA table belongs to the WOFF font, so no need to add it
+                    // to the SFNT font.
+                    tracing::trace!("WOFF C2PA will not be added to SFNT font");
+                }
+            };
+        }
+
+        Ok(Self {
+            header: sfnt_header,
+            directory: sfnt_directory,
+            tables,
+        })
     }
 }
 

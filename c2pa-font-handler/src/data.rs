@@ -52,13 +52,6 @@ impl<'a> FontTableReader<'a> for Data {
         Ok(std::io::Cursor::new(self.data.as_slice()))
     }
 }
-/*
-impl<'a> Data {
-    pub fn reader(&'a self) -> impl Read + Seek + 'a {
-        std::io::Cursor::new(self.data.as_slice())
-    }
-}
-*/
 
 impl FontDataExactRead for Data {
     type Error = FontIoError;

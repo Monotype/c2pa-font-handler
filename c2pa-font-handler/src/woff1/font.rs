@@ -52,7 +52,7 @@ pub struct Woff1Font {
 impl Woff1Font {
     /// Read and decompress a table from the WOFF1 font, for the
     /// given directory entry.
-    pub(crate) fn decompress_table<R: Read + Seek + ?Sized>(
+    pub(crate) fn decompress_table_from_stream<R: Read + Seek + ?Sized>(
         entry: &Woff1DirectoryEntry,
         reader: &mut R,
     ) -> Result<NamedTable, FontIoError> {
@@ -176,7 +176,7 @@ impl FontDataRead for Woff1Font {
             let table = if entry.compLength < entry.origLength
                 && entry.tag == FontTag::C2PA
             {
-                Self::decompress_table(entry, reader)?
+                Self::decompress_table_from_stream(entry, reader)?
             } else {
                 // Read in the table data
                 NamedTable::from_reader_exact(
