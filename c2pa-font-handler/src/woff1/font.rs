@@ -51,6 +51,7 @@ pub struct Woff1Font {
 }
 
 impl Woff1Font {
+    /// Gets the table for the given tag, decompressing it if necessary.
     pub(crate) fn get_decompressed_table(
         &self,
         tag: &FontTag,
@@ -66,12 +67,10 @@ impl Woff1Font {
                 // We always keep the C2PA table uncompressed until we write it
                 // out,
                 NamedTable::C2PA(_data) => {
-                    // If the table is C2PA, we need to decompress it
-                    // from the stream
-                    tracing::debug!(
-                        "Table {:?} is compressed, decompressing",
-                        entry.tag()
-                    );
+                    // Since we always work with C2PA tables in memory,
+                    // this table is not compressed (until it is written to a
+                    // stream), so we can just return the
+                    // data.
                     return Ok(table.clone());
                 }
                 // If we have generic data that is compressed, we need to
@@ -79,16 +78,14 @@ impl Woff1Font {
                 NamedTable::Generic(data)
                     if entry.compLength < entry.origLength =>
                 {
-                    // For other tables, we can just return the reader
-                    tracing::debug!(
-                        "Table {:?} is compressed, returning reader",
-                        entry.tag()
-                    );
+                    // Get a reader for the data
                     let mut reader = data.get_reader()?;
+                    // And adjust a temporary entry to have an offset of 0
                     let tmp_entry = Woff1DirectoryEntry {
                         offset: 0,
                         ..*entry
                     };
+                    // Decompressing the table from the stream
                     return Self::decompress_table_from_stream(
                         &tmp_entry,
                         &mut reader,
@@ -108,7 +105,6 @@ impl Woff1Font {
         entry: &Woff1DirectoryEntry,
         reader: &mut R,
     ) -> Result<NamedTable, FontIoError> {
-        tracing::trace!("Decompressing table: {:?}", entry.tag());
         // Seek to the start of the compressed data
         reader.seek(SeekFrom::Start(entry.offset as u64))?;
 
