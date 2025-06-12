@@ -65,7 +65,12 @@ impl TryFrom<crate::woff1::font::Woff1Font> for SfntFont {
         // Copy over fields as appropriate (you may want to copy more fields)
         let sfnt_header = SfntHeader {
             sfntVersion: woff.header.flavor.try_into()?,
-            numTables: woff.directory.entries().len() as u16,
+            numTables: woff
+                .directory
+                .entries()
+                .iter()
+                .filter(|e| e.tag != FontTag::C2PA)
+                .count() as u16,
             ..Default::default()
         };
         // You may want to set searchRange, entrySelector, rangeShift here as
@@ -128,9 +133,7 @@ impl TryFrom<crate::woff1::font::Woff1Font> for SfntFont {
                 WoffNamedTable::C2PA(_table) => {
                     // C2PA table belongs to the WOFF font, so no need to add it
                     // to the SFNT font.
-                    tracing::trace!(
-                        "Converting WOFF C2PA table to SFNT C2PA table"
-                    );
+                    tracing::trace!("WOFF C2PA will not be added to SFNT font");
                     //SfntNamedTable::C2PA(table.clone())
                 }
             };
