@@ -41,6 +41,12 @@ use crate::{
 };
 
 /// Implementation of an SFNT font.
+///
+/// # Remarks
+/// If the 'woff' feature is enabled, this type can also be created from a
+/// a Woff1Font using the `TryFrom` trait. This is not intended to be used
+/// to produce production-ready SFNT fonts, but serves as a way to utilize
+/// thumbnails for WOFF fonts.
 #[derive(Default)]
 pub struct SfntFont {
     header: SfntHeader,
