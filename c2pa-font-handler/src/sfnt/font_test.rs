@@ -656,4 +656,42 @@ fn test_try_from_woff_to_sfnt_with_compression() {
     let table = table.unwrap();
     assert_eq!(table.len(), 4);
     assert!(!logs_contain("WOFF C2PA will not be added to SFNT font"));
+    let entry_selector = 2f64.log2().floor() as u16;
+    let search_range = 2_u16.pow(entry_selector as u32) * 16;
+    let range_shift = 2 * 16 - search_range;
+    let field = sfnt_font.header.searchRange;
+    assert_eq!(field, search_range);
+    let field = sfnt_font.header.entrySelector;
+    assert_eq!(field, entry_selector);
+    let field = sfnt_font.header.rangeShift;
+    assert_eq!(field, range_shift);
+}
+
+#[cfg(feature = "woff")]
+#[test]
+#[tracing_test::traced_test]
+fn test_try_from_woff_to_sfnt_with_no_tables() {
+    use crate::woff1::font::Woff1Font;
+    // Simulate a WOFF font
+    let woff_data = vec![
+        0x77, 0x4f, 0x46, 0x46, // Signature
+        0x4f, 0x54, 0x54, 0x4f, // Flavor
+        0x00, 0x00, 0x00, 0x30, // Length
+        0x00, 0x00, 0x00, 0x00, // Number of tables + Reserved
+        0x00, 0x00, 0x00, 0x18, // Total sfnt size
+        0x00, 0x00, 0x00, 0x00, // Major version + Minor version
+        0x00, 0x00, 0x00, 0x2c, // Metadata Offset
+        0x00, 0x00, 0x00, 0x04, // Metadata Length
+        0x00, 0x00, 0x00, 0x04, // Metadata Original Length
+        0x00, 0x00, 0x00, 0x00, // Private Offset
+        0x00, 0x00, 0x00, 0x00, // Private Length
+        0x77, 0x55, 0x33, 0x58, // Metadata
+    ];
+
+    let woff_font =
+        Woff1Font::from_reader(&mut std::io::Cursor::new(woff_data.clone()))
+            .unwrap();
+    let sfnt_font_result: Result<SfntFont, _> = woff_font.try_into();
+    assert!(sfnt_font_result.is_err());
+    assert!(matches!(sfnt_font_result, Err(FontIoError::NoTablesFound)));
 }

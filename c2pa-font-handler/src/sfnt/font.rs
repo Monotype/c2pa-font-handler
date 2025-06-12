@@ -454,6 +454,8 @@ impl TryFrom<crate::woff1::font::Woff1Font> for SfntFont {
             FontTableReader,
         };
 
+        // Number of tables in the WOFF font, excluding C2PA (as the C2PA
+        // belonged to the WOFF file not the SFNT font).
         let num_tables = woff
             .directory
             .entries()
@@ -466,12 +468,13 @@ impl TryFrom<crate::woff1::font::Woff1Font> for SfntFont {
             return Err(FontIoError::NoTablesFound);
         }
 
-        // Highest power of 2 <= num_tables
-        let max_power = 2_u16.pow((num_tables as f32).log2().floor() as u32);
-
-        let search_range = max_power * 16;
-        let entry_selector = (max_power as f32).log2() as u16;
-        let range_shift = num_tables * 16 - search_range;
+        // According to the WOFF spec, these three fields MUST be
+        // calculated based on the number of tables.
+        let entry_selector = (num_tables as f64).log2().floor() as u16;
+        let search_range =
+            2u16.pow(entry_selector as u32) * SfntDirectoryEntry::SIZE as u16;
+        let range_shift =
+            num_tables * SfntDirectoryEntry::SIZE as u16 - search_range;
 
         // Copy over fields as appropriate
         let sfnt_header = SfntHeader {
@@ -481,9 +484,6 @@ impl TryFrom<crate::woff1::font::Woff1Font> for SfntFont {
             rangeShift: range_shift,
             searchRange: search_range,
         };
-        // Question: Do we care about searchRAnge, entrySelector, and
-        // rangeShift?  The WOFF spec doesn't define these, so we don't have
-        // them to set here, but we could calculate.
 
         // We will build up the SFNT directory and tables from the WOFF
         let mut sfnt_directory = SfntDirectory::new();
