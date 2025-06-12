@@ -14,9 +14,11 @@
 
 //! Example of reading a WOFF1 font file.
 
+use std::path::Path;
+
 use c2pa_font_handler::{
-    c2pa::UpdatableC2PA, woff1::font::Woff1Font, Font, FontDataRead,
-    FontDirectory, MutFontDataWrite,
+    c2pa::UpdatableC2PA, sfnt::font::SfntFont, woff1::font::Woff1Font, Font,
+    FontDataRead, FontDirectory, MutFontDataWrite,
 };
 use clap::Parser;
 
@@ -54,9 +56,9 @@ async fn main() -> Result<(), anyhow::Error> {
     for table in font.directory().entries() {
         println!("{table:#?}");
     }
-    if let Some(output_file) = args.output {
+    if let Some(output_file_path) = args.output {
         // Write the font information to the output file
-        let mut output_file = std::fs::File::create(output_file)?;
+        let mut output_file = std::fs::File::create(&output_file_path)?;
 
         if let Some(remote_url) = &args.remote_url {
             let update_record = c2pa_font_handler::c2pa::UpdateContentCredentialRecord::builder()
@@ -65,7 +67,19 @@ async fn main() -> Result<(), anyhow::Error> {
             font.update_c2pa_record(update_record)?;
         }
 
-        font.write(&mut output_file)?;
+        // If the output file path extension indicates otf/ttf, then convert and
+        // then write
+        let output_path = Path::new(&output_file_path);
+        if let Some(ext) = output_path.extension().and_then(|s| s.to_str()) {
+            if ext.eq_ignore_ascii_case("otf")
+                || ext.eq_ignore_ascii_case("ttf")
+            {
+                let mut sfnt_font: SfntFont = font.try_into()?;
+                sfnt_font.write(&mut output_file)?;
+            }
+        } else {
+            font.write(&mut output_file)?;
+        }
     }
     Ok(())
 }

@@ -172,6 +172,14 @@ pub trait FontTable: FontDataChecksum + FontDataWrite {
     }
 }
 
+/// A trait for getting a reader for a font table.
+pub trait FontTableReader<'a> {
+    /// The error type for reading the table.
+    type Error: Into<crate::error::FontIoError>;
+    /// Returns a reader for the font table data.
+    fn get_reader(&'a self) -> Result<impl Read + Seek + 'a, Self::Error>;
+}
+
 /// Represents a font.
 pub trait Font: FontDataRead + MutFontDataWrite {
     /// The header type for the font.

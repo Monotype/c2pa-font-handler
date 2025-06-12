@@ -41,6 +41,12 @@ use crate::{
 };
 
 /// Implementation of an SFNT font.
+///
+/// # Remarks
+/// If the 'woff' feature is enabled, this type can also be created from a
+/// a Woff1Font using the `TryFrom` trait. This is not intended to be used
+/// to produce production-ready SFNT fonts, but serves as a way to utilize
+/// thumbnails for WOFF fonts.
 #[derive(Default)]
 pub struct SfntFont {
     header: SfntHeader,
@@ -431,6 +437,97 @@ impl ChunkReader for SfntFont {
             }
         }
         Ok(positions)
+    }
+}
+
+#[cfg(feature = "woff")]
+impl TryFrom<crate::woff1::font::Woff1Font> for SfntFont {
+    type Error = FontIoError;
+
+    fn try_from(
+        woff: crate::woff1::font::Woff1Font,
+    ) -> Result<Self, Self::Error> {
+        // These 'use' are done here because of the gated feature for WOFF
+        // support.
+        use std::collections::BTreeMap;
+
+        use crate::{
+            sfnt::table::NamedTable as SfntNamedTable,
+            woff1::table::NamedTable as WoffNamedTable,
+        };
+
+        // Number of tables in the WOFF font, excluding C2PA (as the C2PA
+        // belonged to the WOFF file not the SFNT font).
+        let num_tables = woff
+            .directory
+            .entries()
+            .iter()
+            .filter(|e| e.tag != FontTag::C2PA)
+            .count() as u16;
+
+        // We must have at least one table to convert to SFNT
+        if num_tables == 0 {
+            return Err(FontIoError::NoTablesFound);
+        }
+
+        // According to the WOFF spec, these three fields MUST be
+        // calculated based on the number of tables.
+        let entry_selector = (num_tables as f64).log2().floor() as u16;
+        let search_range =
+            2u16.pow(entry_selector as u32) * SfntDirectoryEntry::SIZE as u16;
+        let range_shift =
+            num_tables * SfntDirectoryEntry::SIZE as u16 - search_range;
+
+        // Copy over fields as appropriate
+        let sfnt_header = SfntHeader {
+            sfntVersion: woff.header.flavor.try_into()?,
+            numTables: num_tables,
+            entrySelector: entry_selector,
+            rangeShift: range_shift,
+            searchRange: search_range,
+        };
+
+        // We will build up the SFNT directory and tables from the WOFF
+        let mut sfnt_directory = SfntDirectory::new();
+        let mut tables = BTreeMap::new();
+
+        // Iterate over the WOFF directory entries and convert them to SFNT
+        for entry in woff.directory.entries() {
+            // Create a new directory entry for the SFNT font
+            let sfnt_entry = SfntDirectoryEntry {
+                tag: entry.tag,
+                offset: entry.offset, /* This offset is invalid and but when
+                                       * Sfnt is written it will update
+                                       * correctly. */
+                checksum: entry.origChecksum, /* This should still be valid,
+                                               * should we we recalculate it? */
+                length: entry.origLength,
+            };
+            // Add the entry to the SFNT directory
+            sfnt_directory.add_entry(sfnt_entry);
+
+            // Get the table from the WOFF font
+            let woff_table = woff.get_decompressed_table(&entry.tag)?;
+
+            // If the table was compressed in WOFF, decompress it
+            match woff_table {
+                WoffNamedTable::Generic(table) => {
+                    let sfnt_table = SfntNamedTable::Generic(table.clone());
+                    tables.insert(entry.tag, sfnt_table);
+                } // Add other variants as needed
+                WoffNamedTable::C2PA(_table) => {
+                    // C2PA table belongs to the WOFF font, so no need to add it
+                    // to the SFNT font.
+                    tracing::trace!("WOFF C2PA will not be added to SFNT font");
+                }
+            };
+        }
+
+        Ok(Self {
+            header: sfnt_header,
+            directory: sfnt_directory,
+            tables,
+        })
     }
 }
 

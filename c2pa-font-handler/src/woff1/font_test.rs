@@ -836,3 +836,134 @@ fn test_woff1_write_with_c2pa_compressed() {
     let woff_data = destination.into_inner();
     assert_eq!(expected_data, woff_data);
 }
+
+// This test verifies that an error is returned when the entry is not found for
+// a table tag
+#[test]
+fn test_woff1_get_decompressed_table_entry_not_found() {
+    // Simulate a WOFF font with no C2PA table
+    let woff_data = vec![
+        0x77, 0x4f, 0x46, 0x46, // Signature
+        0x4f, 0x54, 0x54, 0x4f, // Flavor
+        0x00, 0x00, 0x00, 0x50, // Length
+        0x00, 0x01, 0x00, 0x00, // Number of tables (text & C2PA)
+        // + Reserved
+        0x00, 0x00, 0x00, 0x18, // Total sfnt size
+        0x00, 0x00, 0x00, 0x00, // Major version + Minor version
+        0x00, 0x00, 0x00, 0x00, // Metadata Offset
+        0x00, 0x00, 0x00, 0x00, // Metadata Length
+        0x00, 0x00, 0x00, 0x00, // Metadata Original Length
+        0x00, 0x00, 0x00, 0x00, // Private Offset
+        0x00, 0x00, 0x00, 0x00, // Private Length
+        0x74, 0x65, 0x73, 0x74, // Directory entry - tag (text)
+        0x00, 0x00, 0x00, 0x40, // Directory entry - offset
+        0x00, 0x00, 0x00, 0x04, // Directory entry - comp length
+        0x00, 0x00, 0x00, 0x04, // Directory entry - orig length
+        0x40, 0x30, 0x02, 0x01, // Directory entry - orig checksum
+        0x04, 0x03, 0x02, 0x01, // 'test' table
+    ];
+    let tag = FontTag::new(*b"ng  "); // Non-existent tag
+    let mut woff_reader = Cursor::new(woff_data);
+    let woff = Woff1Font::from_reader(&mut woff_reader).unwrap();
+    let result = woff.get_decompressed_table(&tag);
+    assert!(result.is_err());
+    assert!(matches!(
+        result.err().unwrap(),
+        FontIoError::TableNotFound(_)
+    ));
+}
+
+// This test verifies that an error is returned when the table is not found
+#[test]
+fn test_woff1_get_decompressed_table_table_not_found() {
+    // Simulate a WOFF font with no C2PA table
+    let woff_data = vec![
+        0x77, 0x4f, 0x46, 0x46, // Signature
+        0x4f, 0x54, 0x54, 0x4f, // Flavor
+        0x00, 0x00, 0x00, 0x50, // Length
+        0x00, 0x01, 0x00, 0x00, // Number of tables (text & C2PA)
+        // + Reserved
+        0x00, 0x00, 0x00, 0x18, // Total sfnt size
+        0x00, 0x00, 0x00, 0x00, // Major version + Minor version
+        0x00, 0x00, 0x00, 0x00, // Metadata Offset
+        0x00, 0x00, 0x00, 0x00, // Metadata Length
+        0x00, 0x00, 0x00, 0x00, // Metadata Original Length
+        0x00, 0x00, 0x00, 0x00, // Private Offset
+        0x00, 0x00, 0x00, 0x00, // Private Length
+        0x74, 0x65, 0x78, 0x74, // Directory entry - tag (text)
+        0x00, 0x00, 0x00, 0x40, // Directory entry - offset
+        0x00, 0x00, 0x00, 0x04, // Directory entry - comp length
+        0x00, 0x00, 0x00, 0x04, // Directory entry - orig length
+        0x40, 0x30, 0x02, 0x01, // Directory entry - orig checksum
+        0x04, 0x03, 0x02, 0x01, // 'test' table
+    ];
+    let tag = FontTag::new(*b"text");
+    let mut woff_reader = Cursor::new(woff_data);
+    let mut woff = Woff1Font::from_reader(&mut woff_reader).unwrap();
+    woff.tables.remove(&tag); // Ensure the tag is not present
+    let result = woff.get_decompressed_table(&tag);
+    assert!(result.is_err());
+    assert!(matches!(
+        result.err().unwrap(),
+        FontIoError::TableNotFound(_)
+    ));
+}
+
+// This test verifies getting a table that is compressed, but returning it as
+// uncompressed.
+#[test]
+fn test_woff1_get_decompressed_table() {
+    let woff_data = vec![
+        0x77, 0x4f, 0x46, 0x46, // Signature
+        0x4f, 0x54, 0x54, 0x4f, // Flavor
+        0x00, 0x00, 0x00, 0x80, // Length (128 bytes)
+        0x00, 0x02, 0x00, 0x00, // Number of tables + Reserved
+        0x00, 0x00, 0x00, 0x60, // Total sfnt size
+        0x00, 0x00, 0x00, 0x00, // Major version + Minor version
+        0x00, 0x00, 0x00, 0x00, // Metadata Offset
+        0x00, 0x00, 0x00, 0x00, // Metadata Length
+        0x00, 0x00, 0x00, 0x00, // Metadata Original Length
+        0x00, 0x00, 0x00, 0x00, // Private Offset
+        0x00, 0x00, 0x00, 0x00, // Private Length
+        0x43, 0x32, 0x43, 0x32, // Directory entry - tag (C2C2)
+        0x00, 0x00, 0x00, 0x58, // Directory entry - offset
+        0x00, 0x00, 0x00, 0x27, // Directory entry - comp length
+        0x00, 0x00, 0x00, 0x32, // Directory entry - orig length
+        0x51, 0x6b, 0x21, 0x35, // Directory entry - orig checksum
+        0x74, 0x65, 0x73, 0x74, // Directory entry - tag (text)
+        0x00, 0x00, 0x00, 0x54, // Directory entry - offset
+        0x00, 0x00, 0x00, 0x04, // Directory entry - comp length
+        0x00, 0x00, 0x00, 0x04, // Directory entry - orig length
+        0x40, 0x30, 0x02, 0x01, // Directory entry - orig checksum
+        0x04, 0x03, 0x02, 0x01, // 'test' table
+        /* 'C2C2' compressed table */
+        0x78, 0x9c, 0x0b, 0x49, //
+        0x2d, 0x2e, 0x51, 0x28, //
+        0xcf, 0x2c, 0xc9, 0x50, //
+        0x48, 0xce, 0xcf, 0x2d, //
+        0x28, 0x4a, 0x2d, 0x2e, //
+        0xce, 0xcc, 0xcf, 0x53, //
+        0x48, 0xad, 0x48, 0xcc, //
+        0x2d, 0xc8, 0x49, 0x55, //
+        0xc4, 0x06, 0x00, 0xb3, //
+        0xdd, 0x0e, 0x10, 0x00, //
+    ];
+    let tag = FontTag::new(*b"C2C2"); // C2C2 tag
+
+    let mut woff_reader = Cursor::new(woff_data);
+    // Create the WOFF font
+    let woff = Woff1Font::from_reader(&mut woff_reader).unwrap();
+
+    // Get the decompressed table
+    let result = woff.get_decompressed_table(&tag);
+    assert!(result.is_ok());
+    let decompressed_data = result.unwrap();
+    // The expected decompressed data for the C2C2 table
+    let expected_data =
+        b"Test with compression example!!!!!!!!!!!!!!!!!!!!!".to_vec();
+    if let NamedTable::Generic(Data { data }) = decompressed_data {
+        assert_eq!(data, expected_data);
+    } else {
+        panic!("Expected a Generic table with decompressed data");
+    }
+}

@@ -22,6 +22,7 @@ use crate::{
 };
 
 /// Various types of tables by name
+#[derive(Clone, Debug)]
 pub enum NamedTable {
     /// 'C2PA' table
     C2PA(TableC2PA),

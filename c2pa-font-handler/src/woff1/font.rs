@@ -37,7 +37,8 @@ use crate::{
     tag::FontTag,
     utils::align_to_four,
     Font, FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
-    FontDirectory, FontDirectoryEntry, FontHeader, FontTable, MutFontDataWrite,
+    FontDirectory, FontDirectoryEntry, FontHeader, FontTable, FontTableReader,
+    MutFontDataWrite,
 };
 
 /// Implementation of an woff1 font.
@@ -50,13 +51,60 @@ pub struct Woff1Font {
 }
 
 impl Woff1Font {
+    /// Gets the table for the given tag, decompressing it if necessary.
+    pub(crate) fn get_decompressed_table(
+        &self,
+        tag: &FontTag,
+    ) -> Result<NamedTable, FontIoError> {
+        let entry = self
+            .directory
+            .entries()
+            .iter()
+            .find(|e| e.tag == *tag)
+            .ok_or(FontIoError::TableNotFound(*tag))?;
+        if let Some(table) = self.table(&entry.tag) {
+            match table {
+                // We always keep the C2PA table uncompressed until we write it
+                // out,
+                NamedTable::C2PA(_data) => {
+                    // Since we always work with C2PA tables in memory,
+                    // this table is not compressed (until it is written to a
+                    // stream), so we can just return the
+                    // data.
+                    return Ok(table.clone());
+                }
+                // If we have generic data that is compressed, we need to
+                // decompress it
+                NamedTable::Generic(data)
+                    if entry.compLength < entry.origLength =>
+                {
+                    // Get a reader for the data
+                    let mut reader = data.get_reader()?;
+                    // And adjust a temporary entry to have an offset of 0
+                    let tmp_entry = Woff1DirectoryEntry {
+                        offset: 0,
+                        ..*entry
+                    };
+                    // Decompressing the table from the stream
+                    return Self::decompress_table_from_stream(
+                        &tmp_entry,
+                        &mut reader,
+                    );
+                }
+                NamedTable::Generic(_data) => {
+                    return Ok(table.clone());
+                }
+            };
+        }
+        Err(FontIoError::TableNotFound(*tag))
+    }
+
     /// Read and decompress a table from the WOFF1 font, for the
     /// given directory entry.
-    fn decompress_table<R: Read + Seek + ?Sized>(
+    fn decompress_table_from_stream<R: Read + Seek + ?Sized>(
         entry: &Woff1DirectoryEntry,
         reader: &mut R,
     ) -> Result<NamedTable, FontIoError> {
-        tracing::trace!("Decompressing table: {:?}", entry.tag());
         // Seek to the start of the compressed data
         reader.seek(SeekFrom::Start(entry.offset as u64))?;
 
@@ -176,7 +224,7 @@ impl FontDataRead for Woff1Font {
             let table = if entry.compLength < entry.origLength
                 && entry.tag == FontTag::C2PA
             {
-                Self::decompress_table(entry, reader)?
+                Self::decompress_table_from_stream(entry, reader)?
             } else {
                 // Read in the table data
                 NamedTable::from_reader_exact(
