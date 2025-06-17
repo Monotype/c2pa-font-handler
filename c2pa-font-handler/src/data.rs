@@ -22,12 +22,12 @@ use std::{
 
 use crate::{
     error::FontIoError, utils, FontDataChecksum, FontDataExactRead,
-    FontDataWrite, FontTable,
+    FontDataWrite, FontTable, FontTableReader,
 };
 
 /// Generic data structure for reading and writing data (e.g. OTF/WOFF1 tables).
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Data {
     /// The data
     pub(crate) data: Vec<u8>,
@@ -42,6 +42,14 @@ impl Data {
     /// Set the associated data
     pub fn set_data(&mut self, data: Vec<u8>) {
         self.data = data;
+    }
+}
+
+impl<'a> FontTableReader<'a> for Data {
+    type Error = FontIoError;
+
+    fn get_reader(&'a self) -> Result<impl Read + Seek + 'a, Self::Error> {
+        Ok(std::io::Cursor::new(self.data.as_slice()))
     }
 }
 

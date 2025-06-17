@@ -497,3 +497,201 @@ fn test_sfnt_chunk_type_display() {
     );
     assert_eq!(SfntChunkType::C2paTableData.to_string(), "C2PA Table Data");
 }
+
+#[cfg(feature = "woff")]
+#[test]
+fn test_try_from_woff_to_sfnt() {
+    // Simulate a WOFF font
+
+    use crate::woff1::font::Woff1Font;
+    let woff_data = vec![
+        0x77, 0x4f, 0x46, 0x46, // Signature
+        0x4f, 0x54, 0x54, 0x4f, // Flavor
+        0x00, 0x00, 0x00, 0x48, // Length
+        0x00, 0x01, 0x00, 0x00, // Number of tables + Reserved
+        0x00, 0x00, 0x00, 0x18, // Total sfnt size
+        0x00, 0x00, 0x00, 0x00, // Major version + Minor version
+        0x00, 0x00, 0x00, 0x44, // Metadata Offset
+        0x00, 0x00, 0x00, 0x04, // Metadata Length
+        0x00, 0x00, 0x00, 0x04, // Metadata Original Length
+        0x00, 0x00, 0x00, 0x00, // Private Offset
+        0x00, 0x00, 0x00, 0x00, // Private Length
+        0x74, 0x65, 0x73, 0x74, // Directory entry - tag (test)
+        0x00, 0x00, 0x00, 0x40, // Directory entry - offset
+        0x00, 0x00, 0x00, 0x04, // Directory entry - comp length
+        0x00, 0x00, 0x00, 0x04, // Directory entry - orig length
+        0x00, 0x00, 0x00, 0x00, // Directory entry - orig checksum
+        0x04, 0x03, 0x02, 0x01, // 'test' table
+        0x77, 0x55, 0x33, 0x58, // Metadata
+    ];
+    let woff_font =
+        Woff1Font::from_reader(&mut std::io::Cursor::new(woff_data.clone()))
+            .unwrap();
+    let sfnt_font_result: Result<SfntFont, _> = woff_font.try_into();
+    assert!(sfnt_font_result.is_ok());
+    let sfnt_font = sfnt_font_result.unwrap();
+    assert_eq!(sfnt_font.header.sfntVersion as u32, 0x4f54544f);
+    assert_eq!(sfnt_font.header.num_tables(), 1);
+    assert!(sfnt_font.contains_table(&FontTag::new(*b"test")));
+    let table = sfnt_font.table(&FontTag::new(*b"test"));
+    assert!(table.is_some());
+    let table = table.unwrap();
+    assert_eq!(table.len(), 4);
+}
+
+#[cfg(feature = "woff")]
+#[test]
+#[tracing_test::traced_test]
+fn test_try_from_woff_to_sfnt_with_c2pa() {
+    use crate::woff1::font::Woff1Font;
+    // Simulate a WOFF font
+    let woff_data = vec![
+        0x77, 0x4f, 0x46, 0x46, // Signature
+        0x4f, 0x54, 0x54, 0x4f, // Flavor
+        0x00, 0x00, 0x00, 0x88, // Length (136 bytes)
+        0x00, 0x02, 0x00, 0x00, // Number of tables + Reserved
+        /* Total sfnt size: 96: (12[sfnt header] + 16*2[table
+         * directory entries] + (20+26+2padding)[c2pa] + 4[text]) */
+        0x00, 0x00, 0x00, 0x60, // Total sfnt size
+        0x00, 0x00, 0x00, 0x00, // Major version + Minor version
+        0x00, 0x00, 0x00, 0x00, // Metadata Offset
+        0x00, 0x00, 0x00, 0x00, // Metadata Length
+        0x00, 0x00, 0x00, 0x00, // Metadata Original Length
+        0x00, 0x00, 0x00, 0x00, // Private Offset
+        0x00, 0x00, 0x00, 0x00, // Private Length
+        0x43, 0x32, 0x50, 0x41, // Directory entry - tag (C2PA)
+        0x00, 0x00, 0x00, 0x58, // Directory entry - offset
+        0x00, 0x00, 0x00, 0x2e, // Directory entry - comp length
+        0x00, 0x00, 0x00, 0x2e, // Directory entry - orig length
+        0x56, 0x54, 0x0c, 0x33, // Directory entry - orig checksum
+        0x74, 0x65, 0x73, 0x74, // Directory entry - tag (text)
+        0x00, 0x00, 0x00, 0x54, // Directory entry - offset
+        0x00, 0x00, 0x00, 0x04, // Directory entry - comp length
+        0x00, 0x00, 0x00, 0x04, // Directory entry - orig length
+        0x40, 0x30, 0x02, 0x01, // Directory entry - orig checksum
+        0x04, 0x03, 0x02, 0x01, // 'test' table
+        /* 'C2PA' table */
+        0x00, 0x00, 0x00, 0x01, // major/minor version
+        0x00, 0x00, 0x00, 0x14, // manifest URI offset
+        0x00, 0x1a, 0x00, 0x00, // manifest URI length + reserved
+        0x00, 0x00, 0x00, 0x00, // content credential offset
+        0x00, 0x00, 0x00, 0x00, // content credential length
+        /* active manifest URI - http://localhost:3001/c2pa\0\0 */
+        0x68, 0x74, 0x74, 0x70, //
+        0x3a, 0x2f, 0x2f, 0x6c, //
+        0x6f, 0x63, 0x61, 0x6c, //
+        0x68, 0x6f, 0x73, 0x74, //
+        0x3a, 0x33, 0x30, 0x30, //
+        0x31, 0x2f, 0x63, 0x32, //
+        0x70, 0x61, 0x00, 0x00, // Last bit with 2 bytes of padding
+    ];
+
+    let woff_font =
+        Woff1Font::from_reader(&mut std::io::Cursor::new(woff_data.clone()))
+            .unwrap();
+    let sfnt_font_result: Result<SfntFont, _> = woff_font.try_into();
+    assert!(sfnt_font_result.is_ok());
+    let sfnt_font = sfnt_font_result.unwrap();
+    assert_eq!(sfnt_font.header.sfntVersion as u32, 0x4f54544f);
+    assert_eq!(sfnt_font.header.num_tables(), 1);
+    assert!(sfnt_font.contains_table(&FontTag::new(*b"test")));
+    let table = sfnt_font.table(&FontTag::new(*b"test"));
+    assert!(table.is_some());
+    let table = table.unwrap();
+    assert_eq!(table.len(), 4);
+    assert!(logs_contain("WOFF C2PA will not be added to SFNT font"));
+}
+
+#[cfg(feature = "woff")]
+#[test]
+#[tracing_test::traced_test]
+fn test_try_from_woff_to_sfnt_with_compression() {
+    use crate::woff1::font::Woff1Font;
+    // Simulate a WOFF font
+    let woff_data = vec![
+        0x77, 0x4f, 0x46, 0x46, // Signature
+        0x4f, 0x54, 0x54, 0x4f, // Flavor
+        0x00, 0x00, 0x00, 0x70, // Length (112 bytes)
+        0x00, 0x02, 0x00, 0x00, // Number of tables + Reserved
+        /* Total sfnt size: 96: (12[sfnt header] + 16*2[table
+         * directory entries] + (20+26+2padding)[c2c2] + 4[text]) */
+        0x00, 0x00, 0x00, 0x60, // Total sfnt size
+        0x00, 0x00, 0x00, 0x00, // Major version + Minor version
+        0x00, 0x00, 0x00, 0x00, // Metadata Offset
+        0x00, 0x00, 0x00, 0x00, // Metadata Length
+        0x00, 0x00, 0x00, 0x00, // Metadata Original Length
+        0x00, 0x00, 0x00, 0x00, // Private Offset
+        0x00, 0x00, 0x00, 0x00, // Private Length
+        0x43, 0x32, 0x43, 0x32, // Directory entry - tag (C2C2)
+        0x00, 0x00, 0x00, 0x58, // Directory entry - offset
+        0x00, 0x00, 0x00, 0x17, // Directory entry - comp length
+        0x00, 0x00, 0x00, 0x2e, // Directory entry - orig length
+        0x51, 0x6b, 0x21, 0x35, // Directory entry - orig checksum
+        0x74, 0x65, 0x73, 0x74, // Directory entry - tag (text)
+        0x00, 0x00, 0x00, 0x54, // Directory entry - offset
+        0x00, 0x00, 0x00, 0x04, // Directory entry - comp length
+        0x00, 0x00, 0x00, 0x04, // Directory entry - orig length
+        0x40, 0x30, 0x02, 0x01, // Directory entry - orig checksum
+        0x04, 0x03, 0x02, 0x01, // 'test' table
+        /* 'C2C2' compressed table */
+        0x78, 0x9c, 0x63, 0x60, // 120, 156, 99, 96
+        0x60, 0x60, 0x64, 0x60, // 96, 96, 100, 96
+        0x60, 0x10, 0x61, 0x90, // 96, 16, 97, 144
+        0x62, 0x80, 0x03, 0x03, // 98, 128, 3, 3
+        0x9c, 0x00, 0x00, 0x48, // 156, 0, 0, 72
+        0xf7, 0x05, 0x10, 0x00, // 247, 5, 16, 0
+    ];
+
+    let woff_font =
+        Woff1Font::from_reader(&mut std::io::Cursor::new(woff_data.clone()))
+            .unwrap();
+    let sfnt_font_result: Result<SfntFont, _> = woff_font.try_into();
+    assert!(sfnt_font_result.is_ok());
+    let sfnt_font = sfnt_font_result.unwrap();
+    assert_eq!(sfnt_font.header.sfntVersion as u32, 0x4f54544f);
+    assert_eq!(sfnt_font.header.num_tables(), 2);
+    assert!(sfnt_font.contains_table(&FontTag::new(*b"test")));
+    let table = sfnt_font.table(&FontTag::new(*b"test"));
+    assert!(table.is_some());
+    let table = table.unwrap();
+    assert_eq!(table.len(), 4);
+    assert!(!logs_contain("WOFF C2PA will not be added to SFNT font"));
+    let entry_selector = 2f64.log2().floor() as u16;
+    let search_range = 2_u16.pow(entry_selector as u32) * 16;
+    let range_shift = 2 * 16 - search_range;
+    let field = sfnt_font.header.searchRange;
+    assert_eq!(field, search_range);
+    let field = sfnt_font.header.entrySelector;
+    assert_eq!(field, entry_selector);
+    let field = sfnt_font.header.rangeShift;
+    assert_eq!(field, range_shift);
+}
+
+#[cfg(feature = "woff")]
+#[test]
+#[tracing_test::traced_test]
+fn test_try_from_woff_to_sfnt_with_no_tables() {
+    use crate::woff1::font::Woff1Font;
+    // Simulate a WOFF font
+    let woff_data = vec![
+        0x77, 0x4f, 0x46, 0x46, // Signature
+        0x4f, 0x54, 0x54, 0x4f, // Flavor
+        0x00, 0x00, 0x00, 0x30, // Length
+        0x00, 0x00, 0x00, 0x00, // Number of tables + Reserved
+        0x00, 0x00, 0x00, 0x18, // Total sfnt size
+        0x00, 0x00, 0x00, 0x00, // Major version + Minor version
+        0x00, 0x00, 0x00, 0x2c, // Metadata Offset
+        0x00, 0x00, 0x00, 0x04, // Metadata Length
+        0x00, 0x00, 0x00, 0x04, // Metadata Original Length
+        0x00, 0x00, 0x00, 0x00, // Private Offset
+        0x00, 0x00, 0x00, 0x00, // Private Length
+        0x77, 0x55, 0x33, 0x58, // Metadata
+    ];
+
+    let woff_font =
+        Woff1Font::from_reader(&mut std::io::Cursor::new(woff_data.clone()))
+            .unwrap();
+    let sfnt_font_result: Result<SfntFont, _> = woff_font.try_into();
+    assert!(sfnt_font_result.is_err());
+    assert!(matches!(sfnt_font_result, Err(FontIoError::NoTablesFound)));
+}

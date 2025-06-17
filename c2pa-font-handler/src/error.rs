@@ -71,12 +71,18 @@ pub enum FontIoError {
     /// The font table is truncated.
     #[error("The font table is truncated: {0}")]
     LoadTableTruncated(FontTag),
+    /// There were no tables found in the font.
+    #[error("No tables were found in the font.")]
+    NoTablesFound,
     /// Save errors.
     #[error("Error saving the font: {0}")]
     SaveError(#[from] FontSaveError),
     /// An error occurred while generating a string from UTF-8 bytes.
     #[error("Error occurred while generating a string from UTF-8 bytes: {0}")]
     StringFromUtf8(#[from] std::string::FromUtf8Error),
+    /// The table associated with the tag was not found.
+    #[error("The font table was not found for tag: {0}")]
+    TableNotFound(FontTag),
     /// When determining the type of font, the magic number was not recognized.
     #[error("An unknown magic number was encountered: {0}")]
     UnknownMagic(u32),
