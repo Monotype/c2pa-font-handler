@@ -58,6 +58,14 @@ impl TableDSIG {
             data: Vec::new(),
         }
     }
+
+    /// Check if this DSIG table is a stub.
+    pub(crate) fn is_stubbed(&self) -> bool {
+        self.version == Self::DEFAULT_VERSION
+            && self.numSignatures == 0
+            && self.flags == Self::DO_NOT_RESIGN
+            && self.data.is_empty()
+    }
 }
 
 impl FontDataExactRead for TableDSIG {

@@ -28,11 +28,11 @@ use c2pa_font_handler::{
     chunks::ChunkReader,
     sfnt::{
         directory::{SfntDirectory, SfntDirectoryEntry},
-        font::SfntFont,
+        font::{stub_dsig_stream, SfntFont},
         header::SfntHeader,
         table::TableC2PA,
     },
-    FontDataExactRead, FontDataRead, FontDataWrite,
+    FontDSIGStubber, FontDataExactRead, FontDataRead, FontDataWrite,
 };
 use criterion::{criterion_group, criterion_main, Criterion};
 use sfnt_utils::*;
@@ -181,9 +181,38 @@ fn sfnt_table_benchmarks(c: &mut Criterion) {
     });
 }
 
+fn sfnt_stub_dsig(c: &mut Criterion) {
+    c.bench_function("sfnt_stub_dsig", |b| {
+        let mut font_stream = std::io::Cursor::new(get_sfnt_font_data());
+        b.iter(|| {
+            font_stream.set_position(0);
+            let mut dest_stream = std::io::Cursor::new(Vec::new());
+
+            // Simulate the removal of the DSIG record
+            parse_font_and_execute_write(
+                &mut font_stream,
+                Some(&mut dest_stream),
+                |font| {
+                    font.stub_dsig().expect("Failed to stub DSIG record");
+                },
+            );
+        });
+    });
+    c.bench_function("sfnt_stub_dsig_stream", |b| {
+        let mut font_stream = std::io::Cursor::new(get_sfnt_font_data());
+        b.iter(|| {
+            font_stream.set_position(0);
+            let mut dest_stream = std::io::Cursor::new(Vec::new());
+            // Simulate the removal of the DSIG record
+            stub_dsig_stream(&mut font_stream, &mut dest_stream)
+                .expect("Failed to stub DSIG stream");
+        });
+    });
+}
+
 criterion_group!(
     name = benches;
     config = Criterion::default().with_profiler(DhatProfiler::new());
-    targets =  sfnt_font_benchmarks, sfnt_header_benchmarks, sfnt_directory_benchmarks, sfnt_table_benchmarks,
+    targets =  sfnt_font_benchmarks, sfnt_header_benchmarks, sfnt_directory_benchmarks, sfnt_table_benchmarks, sfnt_stub_dsig,
 );
 criterion_main!(benches);
