@@ -13,6 +13,39 @@
 //  limitations under the License.
 
 //! SFNT font.
+//!
+//! The crate provides an implementation of the SFNT font format, which is
+//! used by OpenType and TrueType fonts. It includes functionality for reading
+//! and writing SFNT fonts, as well as stubbing the DSIG table.
+//!
+//! # Stubbing the DSIG Table
+//!
+//! The DSIG table is used to store digital signatures for fonts. This crate
+//! provides functionality to stub the DSIG table, which is useful for
+//! keeping a DSIG if present, but zeroing out the signatures and just having
+//! a stub table. This is useful for fonts that are being modified or
+//! processed (i.e., when adding C2PA), as it allows the font to be saved
+//! without invalidating the signatures.
+//!
+//! The following is an example of how to efficiently stub the DSIG table in a
+//! stream without loading the entire font into memory:
+//!
+//! ```no_run
+//! use std::{
+//!     fs::File,
+//!     io::{BufReader, BufWriter},
+//! };
+//!
+//! use c2pa_font_handler::{error::FontIoError, sfnt::font::stub_dsig_stream};
+//! # fn main() -> Result<(), FontIoError> {
+//! let input_file = File::open("path/to/input/font.ttf")?;
+//! let output_file = File::create("path/to/output/font.ttf")?;
+//! let mut reader = BufReader::new(input_file);
+//! let mut writer = BufWriter::new(output_file);
+//! stub_dsig_stream(&mut reader, &mut writer)?;
+//! # Ok(())
+//! # }
+//! ```
 
 use std::{
     collections::{btree_map::Entry, BTreeMap},
@@ -35,9 +68,9 @@ use crate::{
     sfnt::table::TableC2PA,
     tag::FontTag,
     utils::align_to_four,
-    Font, FontDSIGStubber, FontDataChecksum, FontDataExactRead, FontDataRead,
-    FontDataWrite, FontDirectory, FontDirectoryEntry, FontHeader, FontTable,
-    MutFontDataWrite,
+    DSIGType, Font, FontDSIGDetector, FontDSIGStubber, FontDataChecksum,
+    FontDataExactRead, FontDataRead, FontDataWrite, FontDirectory,
+    FontDirectoryEntry, FontHeader, FontTable, MutFontDataWrite,
 };
 
 /// Implementation of an SFNT font.
@@ -207,6 +240,80 @@ impl FontDSIGStubber for SfntFont {
         }
         Ok(())
     }
+}
+
+impl<T: Read + Seek + ?Sized> FontDSIGDetector for T {
+    type Error = FontIoError;
+
+    fn check_for_dsig(&mut self) -> Result<crate::DSIGType, Self::Error> {
+        // Grab the original position.
+        let original_position = self.stream_position()?;
+        // We need to parse the header to be able to read the table directory.
+        let font_header = SfntHeader::from_reader(self)?;
+        // And now we can read the table directory.
+        let font_directory = SfntDirectory::from_reader_with_count(
+            self,
+            font_header.numTables as usize,
+        )?;
+        let dsig_type = match font_directory
+            .entries()
+            .iter()
+            .find(|e| e.tag == FontTag::DSIG)
+        {
+            Some(entry) => {
+                // Since DSIG table, according to the spec, must be at the end
+                // of the file we can use the offset to
+                // determine where the end of the font data is.
+                let original_dsig_offset = entry.offset();
+                let dsig_table = TableDSIG::from_reader_exact(
+                    self,
+                    original_dsig_offset as u64,
+                    entry.length() as usize,
+                )?;
+                if dsig_table.is_stubbed() {
+                    tracing::debug!("DSIG table is stubbed.");
+                    DSIGType::Stubbed
+                } else {
+                    tracing::debug!("DSIG table is present and not stubbed.");
+                    // If it is not stubbed, we can return that it is present.
+                    DSIGType::Present
+                }
+            }
+            None => {
+                tracing::debug!("DSIG table is not present.");
+                DSIGType::NotPresent
+            }
+        };
+        self.seek(std::io::SeekFrom::Start(original_position))?;
+        Ok(dsig_type)
+    }
+}
+
+/// A convenience function to stub the DSIG table in a stream. This will
+/// read the stream, check for the DSIG table, and if it is present, stub
+/// it. If the DSIG table is not present or already stubbed, it will simply
+/// copy the stream to the writer without modification.
+pub fn stub_dsig_stream<R: Read + Seek + ?Sized, W: std::io::Write + ?Sized>(
+    reader: &mut R,
+    writer: &mut W,
+) -> Result<(), FontIoError> {
+    match reader.check_for_dsig()? {
+        DSIGType::NotPresent | DSIGType::Stubbed => {
+            tracing::debug!(
+                "DSIG table is not present or already stubbed, copying stream."
+            );
+            std::io::copy(reader, writer)?;
+        }
+        DSIGType::Present => {
+            tracing::debug!(
+                "DSIG table is present and not stubbed, proceeding to stub it."
+            );
+            let mut sfnt_font = SfntFont::from_reader(reader)?;
+            sfnt_font.stub_dsig()?;
+            sfnt_font.write(writer)?;
+        }
+    };
+    Ok(())
 }
 
 impl C2PASupport for SfntFont {

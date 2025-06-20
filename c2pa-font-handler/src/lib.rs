@@ -207,3 +207,23 @@ pub trait FontDSIGStubber {
     /// Stub the DSIG table in the font.
     fn stub_dsig(&mut self) -> Result<(), Self::Error>;
 }
+
+/// Represents the state of the DSIG table in a font.
+pub enum DSIGType {
+    /// The DSIG table is not present in the font.
+    NotPresent,
+    /// The DSIG table is present in the font and valid.
+    Present,
+    /// The DSIG table is present in the font, but it is empty or invalid.
+    Stubbed,
+}
+
+/// A trait for detecting if a font has a DSIG table. This is useful when you
+/// want to check if a font has a DSIG table without actually reading the
+/// entire font data into memory.
+pub trait FontDSIGDetector {
+    /// The error type for detecting the DSIG table.
+    type Error;
+    /// Detects if the font has a DSIG table.
+    fn check_for_dsig(&mut self) -> Result<DSIGType, Self::Error>;
+}
