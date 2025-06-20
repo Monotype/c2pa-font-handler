@@ -276,7 +276,7 @@ fn test_font_stub_dsig_stream_present() {
     let dsig_table = NamedTable::DSIG(TableDSIG {
         version: 1,
         numSignatures: 1,
-        flags: TableDSIG::DO_NOT_RESIGN,
+        flags: 1,
         data: vec![0x01, 0x02, 0x03, 0x04],
     });
     font.tables.insert(FontTag::DSIG, dsig_table);
