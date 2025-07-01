@@ -17,4 +17,4 @@
 # @brief Rust toolchain configuration file.
 #
 [toolchain]
-channel = "1.82"
+channel = "1.87"
