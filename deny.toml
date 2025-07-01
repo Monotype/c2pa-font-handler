@@ -1,4 +1,4 @@
-# @copyright 2024 Monotype Imaging Inc.
+# @copyright 2024-2025 Monotype Imaging Inc.
 #
 # @file deny.toml
 #
@@ -17,20 +17,24 @@ targets = [
 
 # Deny all advisories unless explicitly ignored.
 [advisories]
+yanked = "deny"
 version = 2
 ignore = []
 
 # Deny multiple versions unless explicitly skipped.
 [bans]
-multiple-versions = "deny"
+multiple-versions = "allow" # "deny" # TODO: Change to "deny" when ready.
 
 wildcards = "deny"
 
 [licenses]
 allow = [
   "Apache-2.0",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
   "MIT",
   "Unicode-3.0",
+  "Zlib",
 ]
 version = 2
 confidence-threshold = 0.8

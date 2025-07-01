@@ -14,8 +14,11 @@
 
 //! Example of reading a WOFF1 font file.
 
+use std::path::Path;
+
 use c2pa_font_handler::{
-    woff1::font::Woff1Font, Font, FontDataRead, FontDirectory,
+    c2pa::UpdatableC2PA, sfnt::font::SfntFont, woff1::font::Woff1Font, Font,
+    FontDataRead, FontDirectory, MutFontDataWrite,
 };
 use clap::Parser;
 
@@ -26,6 +29,14 @@ struct Args {
     /// Input font file
     #[clap(short, long)]
     input: String,
+
+    /// Optional output file to write the font information to.
+    #[clap(short, long)]
+    output: Option<String>,
+
+    /// Optional remote URL to associate with the font.
+    #[clap(short, long)]
+    remote_url: Option<String>,
 }
 
 /// Main function for the stub_dsig example.
@@ -40,10 +51,35 @@ async fn main() -> Result<(), anyhow::Error> {
     // Open the input file
     let mut input_file = std::fs::File::open(&args.input)?;
     // Read the font file
-    let font = Woff1Font::from_reader(&mut input_file)?;
+    let mut font = Woff1Font::from_reader(&mut input_file)?;
     println!("{:#?}", font.header());
     for table in font.directory().entries() {
         println!("{table:#?}");
+    }
+    if let Some(output_file_path) = args.output {
+        // Write the font information to the output file
+        let mut output_file = std::fs::File::create(&output_file_path)?;
+
+        if let Some(remote_url) = &args.remote_url {
+            let update_record = c2pa_font_handler::c2pa::UpdateContentCredentialRecord::builder()
+            .with_active_manifest_uri(remote_url.to_string())
+            .build();
+            font.update_c2pa_record(update_record)?;
+        }
+
+        // If the output file path extension indicates otf/ttf, then convert and
+        // then write
+        let output_path = Path::new(&output_file_path);
+        if let Some(ext) = output_path.extension().and_then(|s| s.to_str()) {
+            if ext.eq_ignore_ascii_case("otf")
+                || ext.eq_ignore_ascii_case("ttf")
+            {
+                let mut sfnt_font: SfntFont = font.try_into()?;
+                sfnt_font.write(&mut output_file)?;
+            }
+        } else {
+            font.write(&mut output_file)?;
+        }
     }
     Ok(())
 }

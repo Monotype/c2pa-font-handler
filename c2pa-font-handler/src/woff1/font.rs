@@ -31,11 +31,14 @@ use crate::{
     compression::{CompressingWriter, DecompressingReader},
     data::Data,
     error::FontIoError,
-    sfnt::table::TableC2PA,
+    sfnt::{
+        directory::SfntDirectoryEntry, header::SfntHeader, table::TableC2PA,
+    },
     tag::FontTag,
     utils::align_to_four,
     Font, FontDataChecksum, FontDataExactRead, FontDataRead, FontDataWrite,
-    FontDirectory, FontDirectoryEntry, FontHeader, FontTable, MutFontDataWrite,
+    FontDirectory, FontDirectoryEntry, FontHeader, FontTable, FontTableReader,
+    MutFontDataWrite,
 };
 
 /// Implementation of an woff1 font.
@@ -48,13 +51,60 @@ pub struct Woff1Font {
 }
 
 impl Woff1Font {
+    /// Gets the table for the given tag, decompressing it if necessary.
+    pub(crate) fn get_decompressed_table(
+        &self,
+        tag: &FontTag,
+    ) -> Result<NamedTable, FontIoError> {
+        let entry = self
+            .directory
+            .entries()
+            .iter()
+            .find(|e| e.tag == *tag)
+            .ok_or(FontIoError::TableNotFound(*tag))?;
+        if let Some(table) = self.table(&entry.tag) {
+            match table {
+                // We always keep the C2PA table uncompressed until we write it
+                // out,
+                NamedTable::C2PA(_data) => {
+                    // Since we always work with C2PA tables in memory,
+                    // this table is not compressed (until it is written to a
+                    // stream), so we can just return the
+                    // data.
+                    return Ok(table.clone());
+                }
+                // If we have generic data that is compressed, we need to
+                // decompress it
+                NamedTable::Generic(data)
+                    if entry.compLength < entry.origLength =>
+                {
+                    // Get a reader for the data
+                    let mut reader = data.get_reader()?;
+                    // And adjust a temporary entry to have an offset of 0
+                    let tmp_entry = Woff1DirectoryEntry {
+                        offset: 0,
+                        ..*entry
+                    };
+                    // Decompressing the table from the stream
+                    return Self::decompress_table_from_stream(
+                        &tmp_entry,
+                        &mut reader,
+                    );
+                }
+                NamedTable::Generic(_data) => {
+                    return Ok(table.clone());
+                }
+            };
+        }
+        Err(FontIoError::TableNotFound(*tag))
+    }
+
     /// Read and decompress a table from the WOFF1 font, for the
     /// given directory entry.
-    fn decompress_table<R: Read + Seek + ?Sized>(
+    fn decompress_table_from_stream<R: Read + Seek + ?Sized>(
         entry: &Woff1DirectoryEntry,
         reader: &mut R,
     ) -> Result<NamedTable, FontIoError> {
-        tracing::trace!("Decompressing table: {:?}", entry.tag());
         // Seek to the start of the compressed data
         reader.seek(SeekFrom::Start(entry.offset as u64))?;
 
@@ -174,7 +224,7 @@ impl FontDataRead for Woff1Font {
             let table = if entry.compLength < entry.origLength
                 && entry.tag == FontTag::C2PA
             {
-                Self::decompress_table(entry, reader)?
+                Self::decompress_table_from_stream(entry, reader)?
             } else {
                 // Read in the table data
                 NamedTable::from_reader_exact(
@@ -280,6 +330,7 @@ impl MutFontDataWrite for Woff1Font {
                     origLength: c2pa_table.length(),
                     origChecksum: original_checksum,
                 });
+
                 running_offset += align_to_four(c2pa_table.compressed_length());
                 Ok::<_, FontIoError>(c2pa_table)
             })
@@ -298,9 +349,30 @@ impl MutFontDataWrite for Woff1Font {
 
         // If we have private data, update the header
         if let Some(private) = &self.private_data {
+            let private_length = private.len();
             neo_header.privOffset = running_offset;
-            neo_header.privLength = private.len();
+            neo_header.privLength = private_length;
+            running_offset += align_to_four(private_length);
         }
+
+        // Update the header with the new length of the entire file
+        neo_header.length = running_offset;
+
+        neo_header.totalSfntSize = {
+            let mut total_sfnt_size = SfntHeader::SIZE as u32; // Size of SFNT header
+            total_sfnt_size +=
+                new_table_count as u32 * SfntDirectoryEntry::SIZE as u32; // Size of table record (directory of font tables)
+                                                                          // Add the size of each table in the directory
+            for table in neo_directory.entries() {
+                total_sfnt_size += align_to_four(table.origLength);
+            }
+            total_sfnt_size
+        };
+
+        // Update the number of tables in the header, which will include the
+        // C2PA table
+        neo_header.numTables = new_table_count;
+
         // Update ourselves with the new header and directory
         self.header = neo_header;
         self.directory = neo_directory;

@@ -57,6 +57,8 @@ pub mod error;
 pub(crate) mod magic;
 pub mod sfnt;
 pub mod tag;
+#[cfg(feature = "thumbnails")]
+pub mod thumbnail;
 pub(crate) mod utils;
 #[cfg(feature = "woff")]
 pub mod woff1;
@@ -170,6 +172,14 @@ pub trait FontTable: FontDataChecksum + FontDataWrite {
     }
 }
 
+/// A trait for getting a reader for a font table.
+pub trait FontTableReader<'a> {
+    /// The error type for reading the table.
+    type Error: Into<crate::error::FontIoError>;
+    /// Returns a reader for the font table data.
+    fn get_reader(&'a self) -> Result<impl Read + Seek + 'a, Self::Error>;
+}
+
 /// Represents a font.
 pub trait Font: FontDataRead + MutFontDataWrite {
     /// The header type for the font.
@@ -196,4 +206,24 @@ pub trait FontDSIGStubber {
     type Error;
     /// Stub the DSIG table in the font.
     fn stub_dsig(&mut self) -> Result<(), Self::Error>;
+}
+
+/// Represents the state of the DSIG table in a font.
+pub enum DSIGType {
+    /// The DSIG table is not present in the font.
+    NotPresent,
+    /// The DSIG table is present in the font and valid.
+    Present,
+    /// The DSIG table is present in the font, but it is empty or invalid.
+    Stubbed,
+}
+
+/// A trait for detecting if a font has a DSIG table. This is useful when you
+/// want to check if a font has a DSIG table without actually reading the
+/// entire font data into memory.
+pub trait FontDSIGDetector {
+    /// The error type for detecting the DSIG table.
+    type Error;
+    /// Detects if the font has a DSIG table.
+    fn check_for_dsig(&mut self) -> Result<DSIGType, Self::Error>;
 }

@@ -141,3 +141,42 @@ fn test_table_dsig_length() {
     };
     assert_eq!(dsig.len(), 8);
 }
+
+#[test]
+fn test_table_dsig_is_stubbed() {
+    // Verify the "stub()" is actually stubbed
+    let dsig = TableDSIG::stub();
+    assert!(dsig.is_stubbed());
+    assert_eq!(dsig.version, 1);
+    assert_eq!(dsig.numSignatures, 0);
+    assert_eq!(dsig.flags, 1);
+    assert!(dsig.data.is_empty());
+
+    // Now look like a stub, but with a different version
+    let dsig = TableDSIG {
+        version: 10,
+        ..TableDSIG::stub()
+    };
+    assert!(!dsig.is_stubbed());
+
+    // Now look like a stub, but with a different numSignatures
+    let dsig = TableDSIG {
+        numSignatures: 10,
+        ..TableDSIG::stub()
+    };
+    assert!(!dsig.is_stubbed());
+
+    // Now look like a stub, but with a different flags
+    let dsig = TableDSIG {
+        flags: 10,
+        ..TableDSIG::stub()
+    };
+    assert!(!dsig.is_stubbed());
+
+    // Now look like a stub, but with data
+    let dsig = TableDSIG {
+        data: vec![1, 2, 3],
+        ..TableDSIG::stub()
+    };
+    assert!(!dsig.is_stubbed());
+}

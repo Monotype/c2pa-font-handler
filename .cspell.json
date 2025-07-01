@@ -18,6 +18,7 @@
     "CHANGELOG.md"
   ],
   "words": [
+    "automock",
     "byteorder",
     "cdef",
     "cksum",
@@ -27,21 +28,29 @@
     "DSIG",
     "flamegraph",
     "flate",
+    "fontdb",
     "fullword",
     "FWORD",
     "gitflow",
     "halfword",
     "halfwords",
     "ilog",
+    "luma",
+    "mockall",
+    "Pixmap",
     "ppem",
     "repr",
     "reqs",
+    "resvg",
     "rustup",
+    "rustybuzz",
     "sfnt",
     "Stubber",
     "taskset",
     "thiserror",
     "toolset",
-    "xdadau"
+    "usvg",
+    "xdadau",
+    "xywh"
   ]
 }

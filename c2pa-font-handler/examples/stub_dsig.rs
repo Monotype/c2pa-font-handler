@@ -1,4 +1,4 @@
-// Copyright 2024 Monotype Imaging Inc.
+// Copyright 2024-2025 Monotype Imaging Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 //! Example of using the font-io library to stub a DSIG table in an SFNT
 //! font.
 
-use c2pa_font_handler::{FontDSIGStubber, FontDataRead, MutFontDataWrite};
+use c2pa_font_handler::sfnt::font::stub_dsig_stream;
 use clap::Parser;
 
 /// This tool can be used to take a font file and remove the DSIG table from it,
@@ -41,15 +41,10 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Open the input file
     let mut input_file = std::fs::File::open(&args.input)?;
-    // Read the font file
-    let mut font =
-        c2pa_font_handler::sfnt::font::SfntFont::from_reader(&mut input_file)?;
-    // Stub the DSIG table
-    font.stub_dsig()?;
     // Open the output file
     let mut output_file = std::fs::File::create(&args.output)?;
-    // And write the font file
-    font.write(&mut output_file)?;
+    // Perform the DSIG stubbing operation
+    stub_dsig_stream(&mut input_file, &mut output_file)?;
 
     Ok(())
 }

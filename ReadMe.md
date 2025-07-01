@@ -1,7 +1,6 @@
 # C2PA Font Handler
 
 - [Foreword](#foreword)
-- [Features](#features)
 - [License](#license)
 - [Contributing](#contributing)
 
@@ -12,9 +11,7 @@ The [C2PA Font Handler/Codec library](./c2pa-font-handler/ReadMe.md) is intended
 a full-featured font software reader/writer. It is intended to do the minimum
 for handling the Content Credential for font software.
 
-## Features
-
-Currently OpenType/TrueType font software is supported by default. Support for WOFF is still in progress and can be tested out by enabling the `woff` feature.
+Currently, only OpenType/TrueType font software is supported. WOFF can be experimented with by using a feature, check out the [c2pa-font-handler Readme.md](./c2pa-font-handler/ReadMe.md).
 
 ## License
 
