@@ -6,6 +6,16 @@ This project adheres to [Semantic Versioning](https://semver.org), except that â
 
 Do not manually edit this file. It will be automatically updated when a new release is published.
 
+## 0.4.4
+
+01 July 2025
+
+* Workflow failure - dev - f066403f7e125774f84a31bbdff407c6fdb09268 ([#52](https://github.com/Monotype/c2pa-font-handler/pull/52))
+* C2PA-708: Check for stubbed DSIG ([#51](https://github.com/Monotype/c2pa-font-handler/pull/51))
+* C2PA-688: Ability to convert a WOFF to SFNT ([#50](https://github.com/Monotype/c2pa-font-handler/pull/50))
+* C2PA-695: Correctly update WOFF header for length, numTables, and totalSfntSize ([#49](https://github.com/Monotype/c2pa-font-handler/pull/49))
+* C2PA-687: Ability to render thumbnails for SFNT files
+
 ## 0.4.3
 
 23 May 2025
