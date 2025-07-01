@@ -164,7 +164,7 @@ impl FontDataExactRead for SfntDirectory {
         offset: u64,
         size: usize,
     ) -> Result<Self, Self::Error> {
-        if size % SfntDirectoryEntry::SIZE != 0 {
+        if !size.is_multiple_of(SfntDirectoryEntry::SIZE) {
             return Err(FontIoError::InvalidSizeForDirectory(size));
         }
         let entry_count = size / SfntDirectoryEntry::SIZE;
