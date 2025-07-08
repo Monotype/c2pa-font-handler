@@ -102,7 +102,7 @@ impl<'a> CosmicTextThumbnailGenerator<'a> {
 impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
     fn create_thumbnail_from_stream(
         &self,
-        reader: &mut (dyn ReadSeek),
+        reader: &mut dyn ReadSeek,
     ) -> Result<super::Thumbnail, super::error::FontThumbnailError> {
         let mut context = create_font_system(&self.font_system_config, reader)?;
         self.renderer.render_thumbnail(&mut context)
