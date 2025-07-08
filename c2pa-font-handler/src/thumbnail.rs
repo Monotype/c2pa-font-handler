@@ -120,6 +120,6 @@ pub trait ThumbnailGenerator {
     /// Returns an error if the thumbnail could not be created from the stream.
     fn create_thumbnail_from_stream(
         &self,
-        reader: &mut (dyn ReadSeek),
+        reader: &mut dyn ReadSeek,
     ) -> Result<Thumbnail, error::FontThumbnailError>;
 }
