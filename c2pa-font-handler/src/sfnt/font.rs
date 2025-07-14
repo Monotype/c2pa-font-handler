@@ -158,36 +158,35 @@ impl MutFontDataWrite for SfntFont {
 
         // Walk our old directory in physical order, adding new entries for each
         // table we still have.
-        self.directory.physical_order().iter().for_each(|entry| {
-            // If we have this entry in our current table list, create new entry
-            if self.tables.contains_key(&entry.tag) {
-                let neo_entry = SfntDirectoryEntry {
-                    tag: entry.tag,
-                    offset: running_offset,
-                    checksum: self.tables[&entry.tag].checksum().0,
-                    length: self.tables[&entry.tag].len(),
-                };
-                neo_directory.add_entry(neo_entry);
-                // Update our running offset.
-                running_offset += align_to_four(self.tables[&entry.tag].len());
-            }
-        });
+        self.directory
+            .physical_order()
+            .iter()
+            .filter(|t| t.tag != FontTag::C2PA) // C2PA should always be at the end
+            .for_each(|entry| {
+                // If we have this entry in our current table list, create new
+                // entry
+                if self.tables.contains_key(&entry.tag) {
+                    let neo_entry = SfntDirectoryEntry {
+                        tag: entry.tag,
+                        offset: running_offset,
+                        checksum: self.tables[&entry.tag].checksum().0,
+                        length: self.tables[&entry.tag].len(),
+                    };
+                    neo_directory.add_entry(neo_entry);
+                    // Update our running offset.
+                    running_offset +=
+                        align_to_four(self.tables[&entry.tag].len());
+                }
+            });
 
         if let Some(c2pa) = self.tables.get(&FontTag::C2PA) {
-            if !self
-                .directory
-                .entries()
-                .iter()
-                .any(|entry| entry.tag == FontTag::C2PA)
-            {
-                let neo_entry = SfntDirectoryEntry {
-                    tag: FontTag::C2PA,
-                    offset: running_offset,
-                    checksum: c2pa.checksum().0,
-                    length: c2pa.len(),
-                };
-                neo_directory.add_entry(neo_entry);
-            }
+            let neo_entry = SfntDirectoryEntry {
+                tag: FontTag::C2PA,
+                offset: running_offset,
+                checksum: c2pa.checksum().0,
+                length: c2pa.len(),
+            };
+            neo_directory.add_entry(neo_entry);
         }
 
         // Sort our directory entries by tag.
