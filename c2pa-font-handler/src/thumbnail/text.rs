@@ -34,6 +34,7 @@ use cosmic_text::{
 use super::{
     error::FontThumbnailError, ReadSeek, Renderer, ThumbnailGenerator,
 };
+use crate::{mime_type, sfnt::font::SfntFont, FontDataRead, MutFontDataWrite};
 
 /// Context for the text font system, which includes the font system, swash
 /// cache, text buffer, and the angle of the font if it is italic.
@@ -103,8 +104,61 @@ impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
     fn create_thumbnail_from_stream(
         &self,
         reader: &mut dyn ReadSeek,
+        mime_type: Option<&str>,
     ) -> Result<super::Thumbnail, super::error::FontThumbnailError> {
-        let mut context = create_font_system(&self.font_system_config, reader)?;
+        let mime_type = match mime_type {
+            Some(mime) => mime.to_string(),
+            None => {
+                let mime_type =
+                    mime_type::MimeTypeGuesser::guess_mime_type(reader)?;
+                mime_type
+            }
+        };
+        let mut source_reader = match mime_type.as_str() {
+            mime_type::MimeTypes::OTF | mime_type::MimeTypes::TTF => reader,
+            mime_type::MimeTypes::WOFF | mime_type::MimeTypes::WOFF2 => {
+                let woff_file = crate::woff1::font::Woff1Font::from_reader(
+                    reader,
+                )
+                .map_err(|_| {
+                    crate::thumbnail::error::FontThumbnailError::IoError(
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "Failed to read WOFF/WOFF2 font data",
+                        ),
+                    )
+                })?;
+                let mut sfnt_font =
+                    SfntFont::try_from(woff_file).map_err(|_| {
+                        crate::thumbnail::error::FontThumbnailError::IoError(
+                            std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                "Failed to convert WOFF/WOFF2 to SFNT",
+                            ),
+                        )
+                    })?;
+                let mut font_data = std::io::Cursor::new(Vec::new());
+                sfnt_font.write(&mut font_data).map_err(|_| {
+                    crate::thumbnail::error::FontThumbnailError::IoError(
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "Failed to write SFNT font data",
+                        ),
+                    )
+                })?;
+                font_data.set_position(0);
+                let mut context = create_font_system(
+                    &self.font_system_config,
+                    &mut font_data,
+                )?;
+                return self.renderer.render_thumbnail(&mut context);
+            }
+            _ => {
+                todo!("Unsupported MIME type: {mime_type}");
+            }
+        };
+        let mut context =
+            create_font_system(&self.font_system_config, &mut source_reader)?;
         self.renderer.render_thumbnail(&mut context)
     }
 }
