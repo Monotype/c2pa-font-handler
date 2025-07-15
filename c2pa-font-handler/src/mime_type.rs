@@ -30,6 +30,22 @@ impl MimeTypes {
     pub const WOFF2: &str = "font/woff2";
 }
 
+/// Magic numbers for font file formats.
+struct MagicNumbers {}
+
+impl MagicNumbers {
+    /// Magic number for OpenType font files with PostScript outlines.
+    const CFF_OTF: [u8; 4] = *b"OTTO";
+    /// Magic number for TrueType font files.
+    const TTF: [u8; 4] = *b"true";
+    /// Magic number for TrueType-based OpenType font files.
+    const TTF_OTF: [u8; 4] = [0x00, 0x01, 0x00, 0x00];
+    /// Magic number for TrueType font files.
+    const WOFF: [u8; 4] = *b"wOFF";
+    /// Magic number for WOFF2 font files.
+    const WOFF2: [u8; 4] = *b"wOF2";
+}
+
 /// A way to guess the MIME type from an object.
 pub trait MimeTypeGuesser {
     /// The error type for the MIME type guessing.
@@ -46,23 +62,23 @@ impl<T: Read + Seek + ?Sized> MimeTypeGuesser for T {
         // Grab the current position so we can rewind later
         let current_position = self.stream_position()?;
         // Read the first few bytes to determine the MIME type
-        let mut buffer = [0; 8];
-        let mut reader = self.take(8);
+        let mut buffer = [0; 4];
+        let mut reader = self.take(4);
         reader.read_exact(&mut buffer)?;
 
         // Rewind the reader to the original position
         self.seek(std::io::SeekFrom::Start(current_position))?;
 
         // Check for common font file signatures
-        if buffer.starts_with(b"\x00\x01\x00\x00")
-            || buffer.starts_with(b"\x4F\x54\x54\x4F")
+        if buffer.starts_with(&MagicNumbers::TTF_OTF)
+            || buffer.starts_with(&MagicNumbers::CFF_OTF)
         {
             Ok(MimeTypes::OTF.to_string())
-        } else if buffer.starts_with(b"\x00\x01\x00\x00") {
+        } else if buffer.starts_with(&MagicNumbers::TTF) {
             Ok(MimeTypes::TTF.to_string())
-        } else if buffer.starts_with(b"\x77\x4F\x46\x46") {
+        } else if buffer.starts_with(&MagicNumbers::WOFF) {
             Ok(MimeTypes::WOFF.to_string())
-        } else if buffer.starts_with(b"\x77\x4F\x46\x46\x32") {
+        } else if buffer.starts_with(&MagicNumbers::WOFF2) {
             Ok(MimeTypes::WOFF2.to_string())
         } else {
             Err(std::io::Error::new(
@@ -72,3 +88,7 @@ impl<T: Read + Seek + ?Sized> MimeTypeGuesser for T {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "mime_type_test.rs"]
+mod tests;
