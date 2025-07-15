@@ -20,32 +20,32 @@ use super::*;
 fn test_guess_mime_type_otf() {
     let mut reader = std::io::Cursor::new(&b"\x00\x01\x00\x00"[..]);
     let mime_type = reader.guess_mime_type().unwrap();
-    assert_eq!(mime_type, MimeTypes::OTF);
+    assert_eq!(mime_type, &FontMimeTypes::OTF);
 
     let mut reader = std::io::Cursor::new(&b"OTTO"[..]);
     let mime_type = reader.guess_mime_type().unwrap();
-    assert_eq!(mime_type, MimeTypes::OTF);
+    assert_eq!(mime_type, &FontMimeTypes::OTF);
 }
 
 #[test]
 fn test_guess_mime_type_ttf() {
     let mut reader = std::io::Cursor::new(&b"true"[..]);
     let mime_type = reader.guess_mime_type().unwrap();
-    assert_eq!(mime_type, MimeTypes::TTF);
+    assert_eq!(mime_type, &FontMimeTypes::TTF);
 }
 
 #[test]
 fn test_guess_mime_type_woff() {
     let mut reader = std::io::Cursor::new(&b"\x77\x4F\x46\x46"[..]);
     let mime_type = reader.guess_mime_type().unwrap();
-    assert_eq!(mime_type, MimeTypes::WOFF);
+    assert_eq!(mime_type, &FontMimeTypes::WOFF);
 }
 
 #[test]
 fn test_guess_mime_type_woff2() {
     let mut reader = std::io::Cursor::new(&b"\x77\x4F\x46\x32"[..]);
     let mime_type = reader.guess_mime_type().unwrap();
-    assert_eq!(mime_type, MimeTypes::WOFF2);
+    assert_eq!(mime_type, &FontMimeTypes::WOFF2);
 }
 
 #[test]

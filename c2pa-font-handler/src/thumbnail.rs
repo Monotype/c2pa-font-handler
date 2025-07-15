@@ -34,7 +34,7 @@ pub(crate) mod text;
 use text::TextFontSystemContext;
 pub use text::{CosmicTextThumbnailGenerator, FontSystemConfig};
 
-use crate::mime_type::FontMimeTypeGuesser;
+use crate::mime_type::{FontMimeTypeGuesser, FontMimeTypes};
 
 /// Represents a thumbnail.
 #[derive(Debug)]
@@ -127,6 +127,6 @@ pub trait ThumbnailGenerator {
     fn create_thumbnail_from_stream(
         &self,
         reader: &mut dyn ReadSeek,
-        mime_type: Option<&str>,
+        mime_type: Option<&FontMimeTypes>,
     ) -> Result<Thumbnail, error::FontThumbnailError>;
 }

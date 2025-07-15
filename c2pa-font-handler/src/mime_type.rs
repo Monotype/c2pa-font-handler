@@ -14,20 +14,33 @@
 
 //! Help with MIME types for font files.
 
-use std::io::{Read, Seek};
+use std::{
+    fmt::Display,
+    io::{Read, Seek},
+};
 
 /// A very slim representation of MIME types for font files.
-pub struct MimeTypes {}
+#[derive(Debug, PartialEq, Eq)]
+pub enum FontMimeTypes {
+    /// OpenType font MIME type.
+    OTF,
+    /// TrueType font MIME type.
+    TTF,
+    /// WOFF font MIME type.
+    WOFF,
+    /// WOFF2 font MIME type.
+    WOFF2,
+}
 
-impl MimeTypes {
-    /// MIME type for OpenType font files.
-    pub const OTF: &str = "font/otf";
-    /// MIME type for TrueType font files.
-    pub const TTF: &str = "font/ttf";
-    /// MIME type for WOFF font files.
-    pub const WOFF: &str = "font/woff";
-    /// MIME type for WOFF2 font files.
-    pub const WOFF2: &str = "font/woff2";
+impl Display for FontMimeTypes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FontMimeTypes::OTF => write!(f, "font/otf"),
+            FontMimeTypes::TTF => write!(f, "font/ttf"),
+            FontMimeTypes::WOFF => write!(f, "font/woff"),
+            FontMimeTypes::WOFF2 => write!(f, "font/woff2"),
+        }
+    }
 }
 
 /// Various known magic types with their MIME types.
@@ -35,7 +48,7 @@ pub struct MagicTypes {
     /// The magic number for the font file format.
     magic: &'static [u8; 4],
     /// The MIME type associated with the magic number.
-    mime_type: &'static str,
+    mime_type: FontMimeTypes,
 }
 
 impl MagicTypes {
@@ -45,27 +58,27 @@ impl MagicTypes {
     /// OpenType font magic number and MIME type.
     pub const OTF: MagicTypes = MagicTypes {
         magic: b"OTTO",
-        mime_type: MimeTypes::OTF,
+        mime_type: FontMimeTypes::OTF,
     };
     /// TrueType font magic number and MIME type.
     pub const TTF: MagicTypes = MagicTypes {
         magic: b"true",
-        mime_type: MimeTypes::TTF,
+        mime_type: FontMimeTypes::TTF,
     };
     /// TrueType-based OpenType font magic number and MIME type.
     pub const TTF_OTF: MagicTypes = MagicTypes {
         magic: &[0x00, 0x01, 0x00, 0x00],
-        mime_type: MimeTypes::OTF,
+        mime_type: FontMimeTypes::OTF,
     };
     /// WOFF font magic number and MIME type.
     pub const WOFF: MagicTypes = MagicTypes {
         magic: b"wOFF",
-        mime_type: MimeTypes::WOFF,
+        mime_type: FontMimeTypes::WOFF,
     };
     /// WOFF2 font magic number and MIME type.
     pub const WOFF2: MagicTypes = MagicTypes {
         magic: b"wOF2",
-        mime_type: MimeTypes::WOFF2,
+        mime_type: FontMimeTypes::WOFF2,
     };
 }
 
@@ -86,13 +99,17 @@ pub trait FontMimeTypeGuesser {
     type Error;
 
     /// Guess the MIME type of the file based on its contents.
-    fn guess_mime_type(&mut self) -> Result<&'static str, Self::Error>;
+    fn guess_mime_type(
+        &mut self,
+    ) -> Result<&'static FontMimeTypes, Self::Error>;
 }
 
 impl<T: Read + Seek + ?Sized> FontMimeTypeGuesser for T {
     type Error = MimeTypeError;
 
-    fn guess_mime_type(&mut self) -> Result<&'static str, Self::Error> {
+    fn guess_mime_type(
+        &mut self,
+    ) -> Result<&'static FontMimeTypes, Self::Error> {
         // Grab the current position so we can rewind later
         let current_position = self.stream_position()?;
         // Read the first few bytes to determine the MIME type
@@ -106,7 +123,7 @@ impl<T: Read + Seek + ?Sized> FontMimeTypeGuesser for T {
         MagicTypes::KNOWN_TYPES
             .iter()
             .find(|&magic_type| buffer.starts_with(magic_type.magic))
-            .map(|magic_type| magic_type.mime_type)
+            .map(|magic_type| &magic_type.mime_type)
             .ok_or(MimeTypeError::UnknownMagicType)
     }
 }

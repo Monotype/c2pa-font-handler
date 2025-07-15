@@ -21,10 +21,13 @@ use cosmic_text::{fontdb::Database, Buffer, Fallback, FontSystem, Metrics};
 use super::{
     create_font_system, measure_text, measure_text_in_buffer, NoFallback,
 };
-use crate::thumbnail::{
-    error::FontThumbnailError,
-    text::{load_font_data, FontNameInfo, FontSystemConfig, LoadedFont},
-    CosmicTextThumbnailGenerator, ThumbnailGenerator,
+use crate::{
+    mime_type::FontMimeTypes,
+    thumbnail::{
+        error::FontThumbnailError,
+        text::{load_font_data, FontNameInfo, FontSystemConfig, LoadedFont},
+        CosmicTextThumbnailGenerator, ThumbnailGenerator,
+    },
 };
 
 // Test converting a Arc<Font> to a FontNameInfo
@@ -280,7 +283,7 @@ fn test_new_cosmic_text_thumbnail_generator_with_unsupported_mime_type() {
         Cursor::new(include_bytes!("../../../.devtools/font.otf"));
     let result = generator.create_thumbnail_from_stream(
         &mut font_data,
-        Some("unsupported/mime-type"),
+        Some(&FontMimeTypes::WOFF2),
     );
     assert!(result.is_err(), "Expected error for unsupported mime type");
     let error = result.unwrap_err();
@@ -289,7 +292,7 @@ fn test_new_cosmic_text_thumbnail_generator_with_unsupported_mime_type() {
         "Expected error to be UnsupportedInputMimeType; found: {error:?}"
     );
     assert!(logs_contain(
-        "Attempting to generate thumbnail for source data with MIME type: unsupported/mime-type"
+        "Attempting to generate thumbnail for source data with MIME type: font/woff2"
     ), "Expected log message about unsupported MIME type");
 }
 
@@ -361,8 +364,10 @@ fn test_cosmic_text_thumbnail_generator_with_font_system_config() {
     );
     let mut font_data =
         Cursor::new(include_bytes!("../../../.devtools/font.otf"));
-    let result = generator
-        .create_thumbnail_from_stream(&mut font_data, Some("font/otf"));
+    let result = generator.create_thumbnail_from_stream(
+        &mut font_data,
+        Some(&FontMimeTypes::OTF),
+    );
     // Check if the result is Ok
     assert!(result.is_ok());
     let thumbnail = result.unwrap();

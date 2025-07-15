@@ -34,7 +34,7 @@ use cosmic_text::{
 use super::{
     error::FontThumbnailError, ReadSeek, Renderer, ThumbnailGenerator,
 };
-use crate::mime_type::{self, FontMimeTypeGuesser};
+use crate::mime_type::{self, FontMimeTypeGuesser, FontMimeTypes};
 
 /// Context for the text font system, which includes the font system, swash
 /// cache, text buffer, and the angle of the font if it is italic.
@@ -104,7 +104,7 @@ impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
     fn create_thumbnail_from_stream(
         &self,
         reader: &mut dyn ReadSeek,
-        mime_type: Option<&str>,
+        mime_type: Option<&FontMimeTypes>,
     ) -> Result<super::Thumbnail, super::error::FontThumbnailError> {
         // Determine the MIME type, guessing if not provided
         let mime = match mime_type {
@@ -118,7 +118,7 @@ impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
         tracing::trace!("Attempting to generate thumbnail for source data with MIME type: {mime}");
 
         match mime {
-            mime_type::MimeTypes::OTF | mime_type::MimeTypes::TTF => {
+            mime_type::FontMimeTypes::OTF | mime_type::FontMimeTypes::TTF => {
                 tracing::trace!("Creating font system from SFNT data");
                 let mut context =
                     create_font_system(&self.font_system_config, reader)?;
@@ -126,7 +126,7 @@ impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
                 self.renderer.render_thumbnail(&mut context)
             }
             #[cfg(feature = "woff")]
-            mime_type::MimeTypes::WOFF | mime_type::MimeTypes::WOFF2 => {
+            mime_type::FontMimeTypes::WOFF => {
                 use std::io::Cursor;
 
                 use crate::{
