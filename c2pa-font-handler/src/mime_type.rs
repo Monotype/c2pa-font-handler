@@ -64,14 +64,14 @@ impl MagicTypes {
         magic: Magic::OpenType,
         mime_type: FontMimeTypes::OTF,
     };
-    /// TrueType font magic number and MIME type.
+    /// TrueType MIME type.
     pub const TTF: MagicTypes = MagicTypes {
-        magic: Magic::AppleTrue,
+        magic: Magic::TrueType,
         mime_type: FontMimeTypes::TTF,
     };
-    /// TrueType-based OpenType font magic number and MIME type.
+    /// Apple True OpenType font magic number and MIME type.
     pub const TTF_OTF: MagicTypes = MagicTypes {
-        magic: Magic::TrueType,
+        magic: Magic::AppleTrue,
         mime_type: FontMimeTypes::OTF,
     };
     /// WOFF font magic number and MIME type.

@@ -18,18 +18,18 @@ use super::*;
 
 #[test]
 fn test_guess_mime_type_otf() {
-    let mut reader = std::io::Cursor::new(&b"\x00\x01\x00\x00"[..]);
+    let mut reader = std::io::Cursor::new(&b"OTTO"[..]);
     let mime_type = reader.guess_mime_type().unwrap();
     assert_eq!(mime_type, &FontMimeTypes::OTF);
 
-    let mut reader = std::io::Cursor::new(&b"OTTO"[..]);
+    let mut reader = std::io::Cursor::new(&b"true"[..]);
     let mime_type = reader.guess_mime_type().unwrap();
     assert_eq!(mime_type, &FontMimeTypes::OTF);
 }
 
 #[test]
 fn test_guess_mime_type_ttf() {
-    let mut reader = std::io::Cursor::new(&b"true"[..]);
+    let mut reader = std::io::Cursor::new(&b"\x00\x01\x00\x00"[..]);
     let mime_type = reader.guess_mime_type().unwrap();
     assert_eq!(mime_type, &FontMimeTypes::TTF);
 }
@@ -57,4 +57,12 @@ fn test_guess_mime_type_unknown() {
         result.err().unwrap(),
         MimeTypeError::UnknownMagicType
     ));
+}
+
+#[test]
+fn test_font_mime_types_display() {
+    assert_eq!(FontMimeTypes::OTF.to_string(), "font/otf");
+    assert_eq!(FontMimeTypes::TTF.to_string(), "font/ttf");
+    assert_eq!(FontMimeTypes::WOFF.to_string(), "font/woff");
+    assert_eq!(FontMimeTypes::WOFF2.to_string(), "font/woff2");
 }
