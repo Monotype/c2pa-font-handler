@@ -109,7 +109,7 @@ pub trait ThumbnailGenerator {
         let mime_type =
             mime_type::MimeTypeGuesser::guess_mime_type(&mut reader)
                 .map_err(error::FontThumbnailError::IoError)?;
-        self.create_thumbnail_from_stream(&mut reader, Some(&mime_type))
+        self.create_thumbnail_from_stream(&mut reader, Some(mime_type))
     }
 
     /// Create a thumbnail from a stream.

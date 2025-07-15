@@ -108,7 +108,7 @@ impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
     ) -> Result<super::Thumbnail, super::error::FontThumbnailError> {
         // Determine the MIME type, guessing if not provided
         let mime = match mime_type {
-            Some(m) => m.to_owned(),
+            Some(m) => m,
             None => {
                 tracing::trace!("Guessing MIME type for font data");
                 mime_type::MimeTypeGuesser::guess_mime_type(reader)
@@ -117,7 +117,7 @@ impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
         };
         tracing::trace!("Attempting to generate thumbnail for source data with MIME type: {mime}");
 
-        match mime.as_str() {
+        match mime {
             mime_type::MimeTypes::OTF | mime_type::MimeTypes::TTF => {
                 tracing::trace!("Creating font system from SFNT data");
                 let mut context =

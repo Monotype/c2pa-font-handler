@@ -16,7 +16,7 @@
 
 use std::io::{Read, Seek};
 
-/// MIME types for common font formats.
+/// A very slim representation of MIME types for font files.
 pub struct MimeTypes {}
 
 impl MimeTypes {
@@ -30,20 +30,43 @@ impl MimeTypes {
     pub const WOFF2: &str = "font/woff2";
 }
 
-/// Magic numbers for font file formats.
-struct MagicNumbers {}
+/// Various known magic types with their MIME types.
+pub struct MagicTypes {
+    /// The magic number for the font file format.
+    magic: &'static [u8; 4],
+    /// The MIME type associated with the magic number.
+    mime_type: &'static str,
+}
 
-impl MagicNumbers {
-    /// Magic number for OpenType font files with PostScript outlines.
-    const CFF_OTF: [u8; 4] = *b"OTTO";
-    /// Magic number for TrueType font files.
-    const TTF: [u8; 4] = *b"true";
-    /// Magic number for TrueType-based OpenType font files.
-    const TTF_OTF: [u8; 4] = [0x00, 0x01, 0x00, 0x00];
-    /// Magic number for TrueType font files.
-    const WOFF: [u8; 4] = *b"wOFF";
-    /// Magic number for WOFF2 font files.
-    const WOFF2: [u8; 4] = *b"wOF2";
+impl MagicTypes {
+    /// Known MIME types for font files.
+    pub const KNOWN_TYPES: &'static [MagicTypes] =
+        &[Self::OTF, Self::TTF, Self::TTF_OTF, Self::WOFF, Self::WOFF2];
+    /// OpenType font magic number and MIME type.
+    pub const OTF: MagicTypes = MagicTypes {
+        magic: b"OTTO",
+        mime_type: MimeTypes::OTF,
+    };
+    /// TrueType font magic number and MIME type.
+    pub const TTF: MagicTypes = MagicTypes {
+        magic: b"true",
+        mime_type: MimeTypes::TTF,
+    };
+    /// TrueType-based OpenType font magic number and MIME type.
+    pub const TTF_OTF: MagicTypes = MagicTypes {
+        magic: &[0x00, 0x01, 0x00, 0x00],
+        mime_type: MimeTypes::OTF,
+    };
+    /// WOFF font magic number and MIME type.
+    pub const WOFF: MagicTypes = MagicTypes {
+        magic: b"wOFF",
+        mime_type: MimeTypes::WOFF,
+    };
+    /// WOFF2 font magic number and MIME type.
+    pub const WOFF2: MagicTypes = MagicTypes {
+        magic: b"wOF2",
+        mime_type: MimeTypes::WOFF2,
+    };
 }
 
 /// A way to guess the MIME type from an object.
@@ -52,13 +75,13 @@ pub trait MimeTypeGuesser {
     type Error;
 
     /// Guess the MIME type of the file based on its contents.
-    fn guess_mime_type(&mut self) -> Result<String, Self::Error>;
+    fn guess_mime_type(&mut self) -> Result<&'static str, Self::Error>;
 }
 
 impl<T: Read + Seek + ?Sized> MimeTypeGuesser for T {
     type Error = std::io::Error;
 
-    fn guess_mime_type(&mut self) -> Result<String, Self::Error> {
+    fn guess_mime_type(&mut self) -> Result<&'static str, Self::Error> {
         // Grab the current position so we can rewind later
         let current_position = self.stream_position()?;
         // Read the first few bytes to determine the MIME type
@@ -69,23 +92,16 @@ impl<T: Read + Seek + ?Sized> MimeTypeGuesser for T {
         // Rewind the reader to the original position
         self.seek(std::io::SeekFrom::Start(current_position))?;
 
-        // Check for common font file signatures
-        if buffer.starts_with(&MagicNumbers::TTF_OTF)
-            || buffer.starts_with(&MagicNumbers::CFF_OTF)
-        {
-            Ok(MimeTypes::OTF.to_string())
-        } else if buffer.starts_with(&MagicNumbers::TTF) {
-            Ok(MimeTypes::TTF.to_string())
-        } else if buffer.starts_with(&MagicNumbers::WOFF) {
-            Ok(MimeTypes::WOFF.to_string())
-        } else if buffer.starts_with(&MagicNumbers::WOFF2) {
-            Ok(MimeTypes::WOFF2.to_string())
-        } else {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Unknown font file format",
-            ))
-        }
+        MagicTypes::KNOWN_TYPES
+            .iter()
+            .find(|&magic_type| buffer.starts_with(magic_type.magic))
+            .map(|magic_type| magic_type.mime_type)
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Unknown font file format",
+                )
+            })
     }
 }
 
