@@ -36,7 +36,7 @@ use cosmic_text::{
 use super::{
     error::FontThumbnailError, ReadSeek, Renderer, ThumbnailGenerator,
 };
-use crate::mime_type::{self, FontMimeTypeGuesser, FontMimeTypes};
+use crate::mime_type::{FontMimeTypeGuesser, FontMimeTypes};
 #[cfg(feature = "woff")]
 use crate::{sfnt::font::SfntFont, FontDataRead, MutFontDataWrite};
 
@@ -122,7 +122,7 @@ impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
         tracing::trace!("Attempting to generate thumbnail for source data with MIME type: {mime}");
 
         match mime {
-            mime_type::FontMimeTypes::OTF | mime_type::FontMimeTypes::TTF => {
+            FontMimeTypes::OTF | FontMimeTypes::TTF => {
                 tracing::trace!("Creating font system from SFNT data");
                 let mut context =
                     create_font_system(&self.font_system_config, reader)?;
@@ -130,7 +130,7 @@ impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
                 self.renderer.render_thumbnail(&mut context)
             }
             #[cfg(feature = "woff")]
-            mime_type::FontMimeTypes::WOFF => {
+            FontMimeTypes::WOFF => {
                 tracing::trace!("Converting WOFF/WOFF2 to SFNT");
                 // Parse WOFF/WOFF2, convert to SFNT, and render
                 let woff_font =
@@ -148,7 +148,12 @@ impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
                 tracing::trace!("Rendering thumbnail for WOFF/WOFF2 font");
                 self.renderer.render_thumbnail(&mut context)
             }
-            _ => Err(FontThumbnailError::UnsupportedInputMimeType),
+            _ => {
+                tracing::warn!(
+                    "Unsupported MIME type for thumbnail generation: {mime}"
+                );
+                Err(FontThumbnailError::UnsupportedInputMimeType)
+            }
         }
     }
 }
