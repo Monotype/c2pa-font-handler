@@ -218,6 +218,7 @@ fn test_measure_text_in_buffer() {
 }
 
 #[test]
+#[tracing_test::traced_test]
 fn test_new_cosmic_text_thumbnail_generator() {
     let mut renderer = crate::thumbnail::MockRenderer::new();
     renderer.expect_render_thumbnail().returning(|_| {
@@ -230,7 +231,7 @@ fn test_new_cosmic_text_thumbnail_generator() {
     let generator = CosmicTextThumbnailGenerator::new(renderer);
     let mut font_data =
         Cursor::new(include_bytes!("../../../.devtools/font.otf"));
-    let result = generator.create_thumbnail_from_stream(&mut font_data);
+    let result = generator.create_thumbnail_from_stream(&mut font_data, None);
     assert!(result.is_ok(), "Expected successful thumbnail creation");
     let thumbnail = result.unwrap();
     assert_eq!(
@@ -245,6 +246,101 @@ fn test_new_cosmic_text_thumbnail_generator() {
     assert!(
         thumbnail.data().starts_with(b"<svg"),
         "Expected thumbnail data to start with '<svg'"
+    );
+    assert!(
+        logs_contain("Guessing MIME type for font data",),
+        "Expected log message about guessing MIME type"
+    );
+    assert!(logs_contain(
+        "Attempting to generate thumbnail for source data with MIME type: font/otf"
+    ), "Expected log message about generating thumbnail for font/otf");
+    assert!(
+        logs_contain("Creating font system from SFNT data"),
+        "Expected log message about creating font system from SFNT data"
+    );
+    assert!(
+        logs_contain("Rendering thumbnail for SFNT font"),
+        "Expected log message about rendering thumbnail for SFNT font"
+    );
+}
+
+#[test]
+#[tracing_test::traced_test]
+fn test_new_cosmic_text_thumbnail_generator_with_unsupported_mime_type() {
+    let mut renderer = crate::thumbnail::MockRenderer::new();
+    renderer.expect_render_thumbnail().returning(|_| {
+        Ok(crate::thumbnail::Thumbnail::new(
+            b"<svg></svg>".to_vec(),
+            "image/svg+xml".to_string(),
+        ))
+    });
+    let renderer = Box::new(renderer);
+    let generator = CosmicTextThumbnailGenerator::new(renderer);
+    let mut font_data =
+        Cursor::new(include_bytes!("../../../.devtools/font.otf"));
+    let result = generator.create_thumbnail_from_stream(
+        &mut font_data,
+        Some("unsupported/mime-type"),
+    );
+    assert!(result.is_err(), "Expected error for unsupported mime type");
+    let error = result.unwrap_err();
+    assert!(
+        matches!(error, FontThumbnailError::UnsupportedInputMimeType),
+        "Expected error to be UnsupportedInputMimeType; found: {error:?}"
+    );
+    assert!(logs_contain(
+        "Attempting to generate thumbnail for source data with MIME type: unsupported/mime-type"
+    ), "Expected log message about unsupported MIME type");
+}
+
+#[cfg(feature = "woff")]
+#[test]
+#[tracing_test::traced_test]
+fn test_new_cosmic_text_thumbnail_generator_for_woff() {
+    let mut renderer = crate::thumbnail::MockRenderer::new();
+    renderer.expect_render_thumbnail().returning(|_| {
+        Ok(crate::thumbnail::Thumbnail::new(
+            b"<svg></svg>".to_vec(),
+            "image/svg+xml".to_string(),
+        ))
+    });
+    let renderer = Box::new(renderer);
+    let generator = CosmicTextThumbnailGenerator::new(renderer);
+    let mut font_data =
+        Cursor::new(include_bytes!("../../../.devtools/font.woff"));
+    let result = generator.create_thumbnail_from_stream(&mut font_data, None);
+    assert!(result.is_ok(), "Expected successful thumbnail creation");
+    let thumbnail = result.unwrap();
+    assert_eq!(
+        "image/svg+xml",
+        thumbnail.mime_type(),
+        "Expected mime type to be 'image/svg+xml'"
+    );
+    assert!(
+        !thumbnail.data().is_empty(),
+        "Expected thumbnail data to not be empty"
+    );
+    assert!(
+        thumbnail.data().starts_with(b"<svg"),
+        "Expected thumbnail data to start with '<svg'"
+    );
+    assert!(
+        logs_contain("Guessing MIME type for font data",),
+        "Expected log message about guessing MIME type"
+    );
+    assert!(logs_contain(
+        "Attempting to generate thumbnail for source data with MIME type: font/woff"
+    ), "Expected log message about generating thumbnail for font/woff");
+    assert!(
+        logs_contain("Converting WOFF/WOFF2 to SFNT"),
+        "Expected log message about converting WOFF/WOFF2 to SFNT"
+    );
+    assert!(logs_contain(
+        "Creating font system from SFNT data created from WOFF/WOFF2"
+    ), "Expected log message about creating font system from SFNT data created from WOFF/WOFF2");
+    assert!(
+        logs_contain("Rendering thumbnail for WOFF/WOFF2 font"),
+        "Expected log message about rendering thumbnail for WOFF/WOFF2 font"
     );
 }
 
@@ -265,7 +361,8 @@ fn test_cosmic_text_thumbnail_generator_with_font_system_config() {
     );
     let mut font_data =
         Cursor::new(include_bytes!("../../../.devtools/font.otf"));
-    let result = generator.create_thumbnail_from_stream(&mut font_data);
+    let result = generator
+        .create_thumbnail_from_stream(&mut font_data, Some("font/otf"));
     // Check if the result is Ok
     assert!(result.is_ok());
     let thumbnail = result.unwrap();

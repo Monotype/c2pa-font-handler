@@ -18,6 +18,9 @@
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum FontThumbnailError {
+    /// An error while reading/writing font data
+    #[error(transparent)]
+    FontIoError(#[from] crate::error::FontIoError),
     /// Error from the image crate
     #[cfg(feature = "png-thumbnails")]
     #[error(transparent)]
@@ -55,4 +58,7 @@ pub enum FontThumbnailError {
     /// The SVG feature is not enabled
     #[error("The SVG feature is not enabled")]
     SvgFeatureNotEnabled,
+    /// The input is not a valid/supported font type
+    #[error("The mime type of the input is not supported")]
+    UnsupportedInputMimeType,
 }

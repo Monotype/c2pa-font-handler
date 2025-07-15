@@ -41,7 +41,10 @@ fn sfnt_thumbnail_benchmarks(c: &mut Criterion) {
             ));
             let generator = CosmicTextThumbnailGenerator::new(svg_renderer);
             let _ = generator
-                .create_thumbnail_from_stream(&mut font_stream)
+                .create_thumbnail_from_stream(
+                    &mut font_stream,
+                    Some("font/otf"),
+                )
                 .unwrap();
         });
     });
@@ -56,7 +59,10 @@ fn sfnt_thumbnail_benchmarks(c: &mut Criterion) {
             ));
             let generator = CosmicTextThumbnailGenerator::new(png_renderer);
             let _ = generator
-                .create_thumbnail_from_stream(&mut font_stream)
+                .create_thumbnail_from_stream(
+                    &mut font_stream,
+                    Some("font/otf"),
+                )
                 .unwrap();
         });
     });

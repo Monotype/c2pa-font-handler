@@ -20,7 +20,7 @@
 //! operations.
 
 use std::{
-    io::{Cursor, Error as IoError, ErrorKind, Read, Seek},
+    io::{Cursor, Read, Seek},
     sync::Arc,
 };
 
@@ -110,59 +110,41 @@ impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
         let mime = match mime_type {
             Some(m) => m.to_owned(),
             None => {
-                let guessed =
-                    mime_type::MimeTypeGuesser::guess_mime_type(reader)
-                        .map_err(FontThumbnailError::from)?;
-                guessed
+                tracing::trace!("Guessing MIME type for font data");
+                mime_type::MimeTypeGuesser::guess_mime_type(reader)
+                    .map_err(FontThumbnailError::from)?
             }
         };
+        tracing::trace!("Attempting to generate thumbnail for source data with MIME type: {mime}");
 
         match mime.as_str() {
             mime_type::MimeTypes::OTF | mime_type::MimeTypes::TTF => {
+                tracing::trace!("Creating font system from SFNT data");
                 let mut context =
                     create_font_system(&self.font_system_config, reader)?;
+                tracing::trace!("Rendering thumbnail for SFNT font");
                 self.renderer.render_thumbnail(&mut context)
             }
+            #[cfg(feature = "woff")]
             mime_type::MimeTypes::WOFF | mime_type::MimeTypes::WOFF2 => {
+                tracing::trace!("Converting WOFF/WOFF2 to SFNT");
                 // Parse WOFF/WOFF2, convert to SFNT, and render
                 let woff_font =
-                    crate::woff1::font::Woff1Font::from_reader(reader)
-                        .map_err(|e| {
-                            FontThumbnailError::IoError(IoError::new(
-                                ErrorKind::InvalidData,
-                                format!(
-                                    "Failed to read WOFF/WOFF2 font data: {e}"
-                                ),
-                            ))
-                        })?;
-                let mut sfnt_font =
-                    SfntFont::try_from(woff_font).map_err(|e| {
-                        FontThumbnailError::IoError(IoError::new(
-                            ErrorKind::InvalidData,
-                            format!(
-                                "Failed to convert WOFF/WOFF2 to SFNT: {e}"
-                            ),
-                        ))
-                    })?;
+                    crate::woff1::font::Woff1Font::from_reader(reader)?;
+                let mut sfnt_font = SfntFont::try_from(woff_font)?;
 
                 // Write SFNT font to an in-memory buffer
                 let mut font_buf = Vec::new();
-                sfnt_font.write(&mut font_buf).map_err(|e| {
-                    FontThumbnailError::IoError(IoError::new(
-                        ErrorKind::InvalidData,
-                        format!("Failed to write SFNT font data: {e}"),
-                    ))
-                })?;
+                sfnt_font.write(&mut font_buf)?;
 
+                tracing::trace!("Creating font system from SFNT data created from WOFF/WOFF2");
                 let mut cursor = Cursor::new(font_buf);
                 let mut context =
                     create_font_system(&self.font_system_config, &mut cursor)?;
+                tracing::trace!("Rendering thumbnail for WOFF/WOFF2 font");
                 self.renderer.render_thumbnail(&mut context)
             }
-            _ => Err(FontThumbnailError::IoError(IoError::new(
-                ErrorKind::InvalidInput,
-                format!("Unsupported MIME type: {mime}"),
-            ))),
+            _ => Err(FontThumbnailError::UnsupportedInputMimeType),
         }
     }
 }
