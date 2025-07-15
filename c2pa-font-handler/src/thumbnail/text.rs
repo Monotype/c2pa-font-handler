@@ -19,6 +19,8 @@
 //! used to generate thumbnails for fonts, which can be used in C2PA
 //! operations.
 
+#[cfg(feature = "woff")]
+use std::io::Cursor;
 use std::{
     io::{Read, Seek},
     sync::Arc,
@@ -35,6 +37,8 @@ use super::{
     error::FontThumbnailError, ReadSeek, Renderer, ThumbnailGenerator,
 };
 use crate::mime_type::{self, FontMimeTypeGuesser, FontMimeTypes};
+#[cfg(feature = "woff")]
+use crate::{sfnt::font::SfntFont, FontDataRead, MutFontDataWrite};
 
 /// Context for the text font system, which includes the font system, swash
 /// cache, text buffer, and the angle of the font if it is italic.
@@ -127,11 +131,6 @@ impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
             }
             #[cfg(feature = "woff")]
             mime_type::FontMimeTypes::WOFF => {
-                use std::io::Cursor;
-
-                use crate::{
-                    sfnt::font::SfntFont, FontDataRead, MutFontDataWrite,
-                };
                 tracing::trace!("Converting WOFF/WOFF2 to SFNT");
                 // Parse WOFF/WOFF2, convert to SFNT, and render
                 let woff_font =
