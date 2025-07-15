@@ -70,7 +70,7 @@ impl MagicTypes {
 }
 
 /// A way to guess the MIME type from an object.
-pub trait MimeTypeGuesser {
+pub trait FontMimeTypeGuesser {
     /// The error type for the MIME type guessing.
     type Error;
 
@@ -78,7 +78,7 @@ pub trait MimeTypeGuesser {
     fn guess_mime_type(&mut self) -> Result<&'static str, Self::Error>;
 }
 
-impl<T: Read + Seek + ?Sized> MimeTypeGuesser for T {
+impl<T: Read + Seek + ?Sized> FontMimeTypeGuesser for T {
     type Error = std::io::Error;
 
     fn guess_mime_type(&mut self) -> Result<&'static str, Self::Error> {

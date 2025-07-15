@@ -34,7 +34,7 @@ pub(crate) mod text;
 use text::TextFontSystemContext;
 pub use text::{CosmicTextThumbnailGenerator, FontSystemConfig};
 
-use crate::mime_type;
+use crate::mime_type::FontMimeTypeGuesser;
 
 /// Represents a thumbnail.
 #[derive(Debug)]
@@ -106,9 +106,8 @@ pub trait ThumbnailGenerator {
     ) -> Result<Thumbnail, error::FontThumbnailError> {
         let mut reader =
             File::open(path).map_err(error::FontThumbnailError::IoError)?;
-        let mime_type =
-            mime_type::MimeTypeGuesser::guess_mime_type(&mut reader)
-                .map_err(error::FontThumbnailError::IoError)?;
+        let mime_type = FontMimeTypeGuesser::guess_mime_type(&mut reader)
+            .map_err(error::FontThumbnailError::IoError)?;
         self.create_thumbnail_from_stream(&mut reader, Some(mime_type))
     }
 

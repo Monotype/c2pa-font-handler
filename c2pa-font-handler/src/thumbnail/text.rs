@@ -34,7 +34,7 @@ use cosmic_text::{
 use super::{
     error::FontThumbnailError, ReadSeek, Renderer, ThumbnailGenerator,
 };
-use crate::mime_type;
+use crate::mime_type::{self, FontMimeTypeGuesser};
 
 /// Context for the text font system, which includes the font system, swash
 /// cache, text buffer, and the angle of the font if it is italic.
@@ -111,7 +111,7 @@ impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
             Some(m) => m,
             None => {
                 tracing::trace!("Guessing MIME type for font data");
-                mime_type::MimeTypeGuesser::guess_mime_type(reader)
+                FontMimeTypeGuesser::guess_mime_type(reader)
                     .map_err(FontThumbnailError::from)?
             }
         };
