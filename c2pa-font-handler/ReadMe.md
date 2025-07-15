@@ -35,7 +35,7 @@ The [render_thumbnails](./examples/render_thumbnail.rs) example is provided to s
 cargo run --features="svg-thumbnails png-thumbnails" --example "render_thumbnail" -- -t svg --input "path/to/font.otf" --output "path/to/thumbnail.svg"
 ```
 
-> NOTE: Since `woff` feature is not on by default, you must also specify `woff` to generate a thumbnail for a WOFF1 file.
+> Note: The `woff` feature is disabled by default. To generate a thumbnail for a WOFF1 file, you must explicitly enable the `woff` feature.
 
 ### `stub_dsig`
 
