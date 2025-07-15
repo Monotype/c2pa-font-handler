@@ -18,8 +18,8 @@
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum FontThumbnailError {
-    /// An error while reading/writing font data
-    #[error(transparent)]
+    /// Font I/O error while reading the font for thumbnail generation
+    #[error("Error reading font data for thumbnail generation; {0}")]
     FontIoError(#[from] crate::error::FontIoError),
     /// Error from the image crate
     #[cfg(feature = "png-thumbnails")]
@@ -28,6 +28,9 @@ pub enum FontThumbnailError {
     /// error from IO operations
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+    /// Error when guessing the MIME type of the font
+    #[error(transparent)]
+    MimeTypeError(#[from] crate::mime_type::MimeTypeError),
     /// A font was not found
     #[error("No font found")]
     NoFontFound,

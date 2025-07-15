@@ -106,8 +106,7 @@ pub trait ThumbnailGenerator {
     ) -> Result<Thumbnail, error::FontThumbnailError> {
         let mut reader =
             File::open(path).map_err(error::FontThumbnailError::IoError)?;
-        let mime_type = FontMimeTypeGuesser::guess_mime_type(&mut reader)
-            .map_err(error::FontThumbnailError::IoError)?;
+        let mime_type = FontMimeTypeGuesser::guess_mime_type(&mut reader)?;
         self.create_thumbnail_from_stream(&mut reader, Some(mime_type))
     }
 

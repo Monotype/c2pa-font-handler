@@ -53,5 +53,8 @@ fn test_guess_mime_type_unknown() {
     let mut reader = std::io::Cursor::new(&b"unknown"[..]);
     let result = reader.guess_mime_type();
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+    assert!(matches!(
+        result.err().unwrap(),
+        MimeTypeError::UnknownMagicType
+    ));
 }

@@ -69,6 +69,17 @@ impl MagicTypes {
     };
 }
 
+/// Error type for MIME type guessing.
+#[derive(Debug, thiserror::Error)]
+pub enum MimeTypeError {
+    /// An error while reading/writing font data.
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
+    /// Error when the magic number does not match any known type.
+    #[error("Unknown font file format")]
+    UnknownMagicType,
+}
+
 /// A way to guess the MIME type from an object.
 pub trait FontMimeTypeGuesser {
     /// The error type for the MIME type guessing.
@@ -79,7 +90,7 @@ pub trait FontMimeTypeGuesser {
 }
 
 impl<T: Read + Seek + ?Sized> FontMimeTypeGuesser for T {
-    type Error = std::io::Error;
+    type Error = MimeTypeError;
 
     fn guess_mime_type(&mut self) -> Result<&'static str, Self::Error> {
         // Grab the current position so we can rewind later
@@ -96,12 +107,7 @@ impl<T: Read + Seek + ?Sized> FontMimeTypeGuesser for T {
             .iter()
             .find(|&magic_type| buffer.starts_with(magic_type.magic))
             .map(|magic_type| magic_type.mime_type)
-            .ok_or_else(|| {
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Unknown font file format",
-                )
-            })
+            .ok_or(MimeTypeError::UnknownMagicType)
     }
 }
 
