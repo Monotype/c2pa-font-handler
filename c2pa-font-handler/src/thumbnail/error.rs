@@ -62,6 +62,6 @@ pub enum FontThumbnailError {
     #[error("The SVG feature is not enabled")]
     SvgFeatureNotEnabled,
     /// The input is not a valid/supported font type
-    #[error("The mime type of the input is not supported")]
+    #[error("The MIME type of the input is not supported")]
     UnsupportedInputMimeType,
 }
