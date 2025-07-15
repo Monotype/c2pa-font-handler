@@ -19,6 +19,10 @@ use std::{
     io::{Read, Seek},
 };
 
+use byteorder::{BigEndian, ReadBytesExt};
+
+use crate::magic::Magic;
+
 /// A very slim representation of MIME types for font files.
 #[derive(Debug, PartialEq, Eq)]
 pub enum FontMimeTypes {
@@ -46,7 +50,7 @@ impl Display for FontMimeTypes {
 /// Various known magic types with their MIME types.
 pub struct MagicTypes {
     /// The magic number for the font file format.
-    magic: &'static [u8; 4],
+    magic: Magic,
     /// The MIME type associated with the magic number.
     mime_type: FontMimeTypes,
 }
@@ -57,27 +61,27 @@ impl MagicTypes {
         &[Self::OTF, Self::TTF, Self::TTF_OTF, Self::WOFF, Self::WOFF2];
     /// OpenType font magic number and MIME type.
     pub const OTF: MagicTypes = MagicTypes {
-        magic: b"OTTO",
+        magic: Magic::OpenType,
         mime_type: FontMimeTypes::OTF,
     };
     /// TrueType font magic number and MIME type.
     pub const TTF: MagicTypes = MagicTypes {
-        magic: b"true",
+        magic: Magic::AppleTrue,
         mime_type: FontMimeTypes::TTF,
     };
     /// TrueType-based OpenType font magic number and MIME type.
     pub const TTF_OTF: MagicTypes = MagicTypes {
-        magic: &[0x00, 0x01, 0x00, 0x00],
+        magic: Magic::TrueType,
         mime_type: FontMimeTypes::OTF,
     };
     /// WOFF font magic number and MIME type.
     pub const WOFF: MagicTypes = MagicTypes {
-        magic: b"wOFF",
+        magic: Magic::Woff,
         mime_type: FontMimeTypes::WOFF,
     };
     /// WOFF2 font magic number and MIME type.
     pub const WOFF2: MagicTypes = MagicTypes {
-        magic: b"wOF2",
+        magic: Magic::Woff2,
         mime_type: FontMimeTypes::WOFF2,
     };
 }
@@ -113,16 +117,15 @@ impl<T: Read + Seek + ?Sized> FontMimeTypeGuesser for T {
         // Grab the current position so we can rewind later
         let current_position = self.stream_position()?;
         // Read the first few bytes to determine the MIME type
-        let mut buffer = [0; 4];
         let mut reader = self.take(4);
-        reader.read_exact(&mut buffer)?;
+        let magic = reader.read_u32::<BigEndian>()?;
 
         // Rewind the reader to the original position
         self.seek(std::io::SeekFrom::Start(current_position))?;
 
         MagicTypes::KNOWN_TYPES
             .iter()
-            .find(|&magic_type| buffer.starts_with(magic_type.magic))
+            .find(|&magic_type| magic == magic_type.magic as u32)
             .map(|magic_type| &magic_type.mime_type)
             .ok_or(MimeTypeError::UnknownMagicType)
     }
