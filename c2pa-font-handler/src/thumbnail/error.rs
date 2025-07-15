@@ -18,6 +18,9 @@
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum FontThumbnailError {
+    /// Font I/O error while reading the font for thumbnail generation
+    #[error("Error reading font data for thumbnail generation; {0}")]
+    FontIoError(#[from] crate::error::FontIoError),
     /// Error from the image crate
     #[cfg(feature = "png-thumbnails")]
     #[error(transparent)]
@@ -25,6 +28,9 @@ pub enum FontThumbnailError {
     /// error from IO operations
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+    /// Error when guessing the MIME type of the font
+    #[error(transparent)]
+    MimeTypeError(#[from] crate::mime_type::MimeTypeError),
     /// A font was not found
     #[error("No font found")]
     NoFontFound,
@@ -55,4 +61,7 @@ pub enum FontThumbnailError {
     /// The SVG feature is not enabled
     #[error("The SVG feature is not enabled")]
     SvgFeatureNotEnabled,
+    /// The input is not a valid/supported font type
+    #[error("The MIME type of the input is not supported")]
+    UnsupportedInputMimeType,
 }

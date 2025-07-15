@@ -19,6 +19,8 @@
 //! used to generate thumbnails for fonts, which can be used in C2PA
 //! operations.
 
+#[cfg(feature = "woff")]
+use std::io::Cursor;
 use std::{
     io::{Read, Seek},
     sync::Arc,
@@ -34,6 +36,9 @@ use cosmic_text::{
 use super::{
     error::FontThumbnailError, ReadSeek, Renderer, ThumbnailGenerator,
 };
+use crate::mime_type::{FontMimeTypeGuesser, FontMimeTypes};
+#[cfg(feature = "woff")]
+use crate::{sfnt::font::SfntFont, FontDataRead, MutFontDataWrite};
 
 /// Context for the text font system, which includes the font system, swash
 /// cache, text buffer, and the angle of the font if it is italic.
@@ -103,9 +108,53 @@ impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
     fn create_thumbnail_from_stream(
         &self,
         reader: &mut dyn ReadSeek,
+        mime_type: Option<&FontMimeTypes>,
     ) -> Result<super::Thumbnail, super::error::FontThumbnailError> {
-        let mut context = create_font_system(&self.font_system_config, reader)?;
-        self.renderer.render_thumbnail(&mut context)
+        // Determine the MIME type, guessing if not provided
+        let mime = match mime_type {
+            Some(m) => m,
+            None => {
+                tracing::trace!("Guessing MIME type for font data");
+                FontMimeTypeGuesser::guess_mime_type(reader)
+                    .map_err(FontThumbnailError::from)?
+            }
+        };
+        tracing::trace!("Attempting to generate thumbnail for source data with MIME type: {mime}");
+
+        match mime {
+            FontMimeTypes::OTF | FontMimeTypes::TTF => {
+                tracing::trace!("Creating font system from SFNT data");
+                let mut context =
+                    create_font_system(&self.font_system_config, reader)?;
+                tracing::trace!("Rendering thumbnail for SFNT font");
+                self.renderer.render_thumbnail(&mut context)
+            }
+            #[cfg(feature = "woff")]
+            FontMimeTypes::WOFF => {
+                tracing::trace!("Converting WOFF/WOFF2 to SFNT");
+                // Parse WOFF/WOFF2, convert to SFNT, and render
+                let woff_font =
+                    crate::woff1::font::Woff1Font::from_reader(reader)?;
+                let mut sfnt_font = SfntFont::try_from(woff_font)?;
+
+                // Write SFNT font to an in-memory buffer
+                let mut font_buf = Vec::new();
+                sfnt_font.write(&mut font_buf)?;
+
+                tracing::trace!("Creating font system from SFNT data created from WOFF/WOFF2");
+                let mut cursor = Cursor::new(font_buf);
+                let mut context =
+                    create_font_system(&self.font_system_config, &mut cursor)?;
+                tracing::trace!("Rendering thumbnail for WOFF/WOFF2 font");
+                self.renderer.render_thumbnail(&mut context)
+            }
+            _ => {
+                tracing::warn!(
+                    "Unsupported MIME type for thumbnail generation: {mime}"
+                );
+                Err(FontThumbnailError::UnsupportedInputMimeType)
+            }
+        }
     }
 }
 

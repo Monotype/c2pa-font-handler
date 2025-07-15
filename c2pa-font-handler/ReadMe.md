@@ -20,8 +20,8 @@ Feature|Note|On by Default
 -|-|-
 `compression`|Turns on support for compression, using the `flate` feature|❌ No
 `flate`|Compiles the `flate2` crate|❌ No
-`png-thumbnails`|Adds the ability to create PNG thumbnails for SFNT files|❌ No
-`svg-thumbnails`|Adds the ability to create SVG thumbnails for SFNT files|✅ Yes
+`png-thumbnails`|Adds the ability to create PNG thumbnails for SFNT (and WOFF1) files|❌ No
+`svg-thumbnails`|Adds the ability to create SVG thumbnails for SFNT (and WOFF1) files|✅ Yes
 `thumbnails`|Use of `cosmic-text` crate for generating thumbnails; `png-thumbnails` and/or `svg-thumbnails` turn this on when used.|✅ Yes
 `woff`|Turns on support for WOFF fonts (this is currently a work in progress)|❌ No
 
@@ -34,6 +34,8 @@ The [render_thumbnails](./examples/render_thumbnail.rs) example is provided to s
 ```shell
 cargo run --features="svg-thumbnails png-thumbnails" --example "render_thumbnail" -- -t svg --input "path/to/font.otf" --output "path/to/thumbnail.svg"
 ```
+
+> Note: The `woff` feature is disabled by default. To generate a thumbnail for a WOFF1 file, you must explicitly enable the `woff` feature.
 
 ### `stub_dsig`
 
