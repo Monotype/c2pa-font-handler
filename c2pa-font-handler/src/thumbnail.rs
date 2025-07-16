@@ -34,6 +34,8 @@ pub(crate) mod text;
 use text::TextFontSystemContext;
 pub use text::{CosmicTextThumbnailGenerator, FontSystemConfig};
 
+use crate::mime_type::{FontMimeTypeGuesser, FontMimeTypes};
+
 /// Represents a thumbnail.
 #[derive(Debug)]
 pub struct Thumbnail {
@@ -104,7 +106,8 @@ pub trait ThumbnailGenerator {
     ) -> Result<Thumbnail, error::FontThumbnailError> {
         let mut reader =
             File::open(path).map_err(error::FontThumbnailError::IoError)?;
-        self.create_thumbnail_from_stream(&mut reader)
+        let mime_type = FontMimeTypeGuesser::guess_mime_type(&mut reader)?;
+        self.create_thumbnail_from_stream(&mut reader, Some(mime_type))
     }
 
     /// Create a thumbnail from a stream.
@@ -115,11 +118,15 @@ pub trait ThumbnailGenerator {
     /// # Parameters
     /// - `reader`: A mutable reference to a reader that implements `Read` and
     ///   `Seek`.
+    /// - `mime_type`: An optional MIME type of the data represented by the
+    ///   reader. If not provided, the MIME type will be guessed based on the
+    ///   contents of the reader when needed.
     ///
     /// # Errors
     /// Returns an error if the thumbnail could not be created from the stream.
     fn create_thumbnail_from_stream(
         &self,
         reader: &mut dyn ReadSeek,
+        mime_type: Option<&FontMimeTypes>,
     ) -> Result<Thumbnail, error::FontThumbnailError>;
 }

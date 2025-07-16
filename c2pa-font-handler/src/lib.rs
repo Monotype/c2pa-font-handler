@@ -55,6 +55,7 @@ pub mod compression;
 pub mod data;
 pub mod error;
 pub(crate) mod magic;
+pub mod mime_type;
 pub mod sfnt;
 pub mod tag;
 #[cfg(feature = "thumbnails")]

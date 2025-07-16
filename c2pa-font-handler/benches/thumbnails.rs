@@ -19,10 +19,13 @@
 mod profiler_utils;
 use std::io::Cursor;
 
-use c2pa_font_handler::thumbnail::{
-    CosmicTextThumbnailGenerator, PngThumbnailRenderer,
-    PngThumbnailRendererConfig, SvgThumbnailRenderer,
-    SvgThumbnailRendererConfig, ThumbnailGenerator,
+use c2pa_font_handler::{
+    mime_type::FontMimeTypes,
+    thumbnail::{
+        CosmicTextThumbnailGenerator, PngThumbnailRenderer,
+        PngThumbnailRendererConfig, SvgThumbnailRenderer,
+        SvgThumbnailRendererConfig, ThumbnailGenerator,
+    },
 };
 use criterion::{criterion_group, criterion_main, Criterion};
 use profiler_utils::DhatProfiler;
@@ -41,7 +44,10 @@ fn sfnt_thumbnail_benchmarks(c: &mut Criterion) {
             ));
             let generator = CosmicTextThumbnailGenerator::new(svg_renderer);
             let _ = generator
-                .create_thumbnail_from_stream(&mut font_stream)
+                .create_thumbnail_from_stream(
+                    &mut font_stream,
+                    Some(&FontMimeTypes::OTF),
+                )
                 .unwrap();
         });
     });
@@ -56,7 +62,10 @@ fn sfnt_thumbnail_benchmarks(c: &mut Criterion) {
             ));
             let generator = CosmicTextThumbnailGenerator::new(png_renderer);
             let _ = generator
-                .create_thumbnail_from_stream(&mut font_stream)
+                .create_thumbnail_from_stream(
+                    &mut font_stream,
+                    Some(&FontMimeTypes::OTF),
+                )
                 .unwrap();
         });
     });

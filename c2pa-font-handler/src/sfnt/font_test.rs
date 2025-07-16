@@ -575,6 +575,64 @@ fn test_sfnt_font_chunk_reader_tracing() {
     assert!(logs_contain("Adding positional information for table data"));
 }
 
+/// According to the specification, the C2PA table should always be the last
+/// table in the directory, so we test that it is correctly ordered
+/// by the `SfntFont` implementation when the incoming font data
+/// has the C2PA table present but not at the end.
+#[test]
+fn test_sfnt_reorders_present_c2pa_table_correctly() {
+    // Simulate a font with the C2PA table not at the end
+    let font_data = vec![
+        // SFNT Header (12 bytes)
+        0x00, 0x01, 0x00, 0x00, // sfntVersion (TrueType)
+        0x00, 0x02, // numTables = 2
+        0x00, 0x10, // searchRange = 16 (2^1 * 16)
+        0x00, 0x01, // entrySelector = 1 (log2(2))
+        0x00, 0x10, // rangeShift = 16 (2*16 - 16)
+        // Table Directory Entry 1: C2PA (16 bytes)
+        0x43, 0x32, 0x50, 0x41, // tag 'C2PA'
+        0x00, 0x00, 0x00, 0x00, // checksum (dummy)
+        0x00, 0x00, 0x00, 0x2c, // offset = 44 (header + 2*16 dir entries)
+        0x00, 0x00, 0x00, 0x30, // length = 48 bytes
+        // Table Directory Entry 2: test (16 bytes)
+        0x74, 0x65, 0x73, 0x74, // tag 'test'
+        0x00, 0x00, 0x00, 0x00, // checksum (dummy)
+        0x00, 0x00, 0x00, 0x5c, // offset = 92
+        0x00, 0x00, 0x00, 0x04, // length = 4 bytes
+        // Table Data: C2PA
+        0x00, 0x00, 0x00, 0x01, // major/minor version
+        0x00, 0x00, 0x00, 0x14, // manifest URI offset (20 bytes)
+        0x00, 0x1c, 0x00,
+        0x00, // manifest URI length (26 bytes) + reserved
+        0x00, 0x00, 0x00, 0x00, // content credential offset
+        0x00, 0x00, 0x00, 0x00, // content credential length
+        // active manifest URI - "http://localhost:3001/c2pa\0\0" (26 bytes + 2 padding)
+        0x68, 0x74, 0x74, 0x70, // h t t p
+        0x3a, 0x2f, 0x2f, 0x6c, // : / / l
+        0x6f, 0x63, 0x61, 0x6c, // o c a l
+        0x68, 0x6f, 0x73, 0x74, // h o s t
+        0x3a, 0x33, 0x30, 0x30, // : 3 0 0
+        0x31, 0x2f, 0x63, 0x32, // 1 / c 2
+        0x70, 0x61, 0x00, 0x00, // p a \0 \0
+        // Table Data: test
+        0x04, 0x03, 0x02, 0x01, // arbitrary data
+    ];
+    let mut reader = Cursor::new(font_data);
+    let result = SfntFont::from_reader(&mut reader);
+    assert!(result.is_ok());
+    let mut font = result.unwrap();
+    // Write the font out to make sure it orders it correctly
+    let mut writer = Cursor::new(Vec::new());
+    let write_result = font.write(&mut writer);
+    assert!(write_result.is_ok());
+    let written_data = writer.into_inner();
+    // Verify the C2PA table is now at the end of the stream
+    assert_eq!(
+        &written_data[written_data.len() - 12..],
+        b":3001/c2pa\x00\x00"
+    ); // sfntVersion
+}
+
 #[test]
 fn test_sfnt_chunk_type_display() {
     assert_eq!(
