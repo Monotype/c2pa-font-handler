@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org), except that â
 
 Do not manually edit this file. It will be automatically updated when a new release is published.
 
+## 0.5.0
+
+16 July 2025
+
+* C2PA-718/C2P-143: Ensure the C2PA table is written at the end of the stream. ([#60](https://github.com/Monotype/c2pa-font-handler/pull/60))
+* C2PA-689/C2PA-690: (MINOR) Generate thumbnails for WOFF1 files. ([#61](https://github.com/Monotype/c2pa-font-handler/pull/61))
+
 ## 0.4.5
 
 08 July 2025
