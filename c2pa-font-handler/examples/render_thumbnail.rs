@@ -19,6 +19,10 @@ use c2pa_font_handler::thumbnail::{
     ThumbnailGenerator,
 };
 use clap::{Parser, ValueEnum};
+use tracing_subscriber::{
+    fmt::{format::FmtSpan, writer::BoxMakeWriter},
+    EnvFilter,
+};
 
 /// Types of thumbnails that can be generated.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
@@ -42,16 +46,61 @@ struct Args {
     /// The type of thumbnail to generate
     #[clap(short, long, default_value = "svg")]
     thumbnail_type: ThumbnailType,
+    /// Optional log file to write logs to. If not provided, logs will be
+    /// written to stdout.
+    #[clap(long, default_value = None)]
+    log_file: Option<String>,
+}
+
+/// Destination for logging output.
+enum LogDestination {
+    /// Log to a file
+    File(std::path::PathBuf),
+    /// Log to stdout
+    Stdout,
+}
+
+impl LogDestination {
+    /// Create a writer for the log destination, used with the tracing
+    /// subscriber.
+    fn make_writer(&self) -> BoxMakeWriter {
+        match self {
+            LogDestination::File(file) => {
+                let file = std::fs::File::create(file)
+                    .expect("Failed to create log file");
+                BoxMakeWriter::new(move || file.try_clone().unwrap())
+            }
+            LogDestination::Stdout => BoxMakeWriter::new(std::io::stdout),
+        }
+    }
+}
+
+/// Initialize the logger with the specified log file or stdout.
+fn init_logger(log_file: Option<String>) {
+    // Initialize the logger, can be controlled with RUST_LOG=debug,info,trace,
+    // etc.
+    let log_stream = if let Some(log_file) = log_file {
+        LogDestination::File(log_file.into())
+    } else {
+        LogDestination::Stdout
+    };
+    let writer = log_stream.make_writer();
+    tracing_subscriber::fmt::SubscriberBuilder::default()
+        .json()
+        .with_env_filter(EnvFilter::from_default_env())
+        .with_span_events(FmtSpan::CLOSE)
+        .with_current_span(true)
+        .with_writer(writer)
+        .init();
 }
 
 /// Main function for the render_thumbnail example.
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    // Initialize the logger, can be controlled with RUST_LOG=debug,info,trace,
-    // etc.
-    tracing_subscriber::fmt::init();
     // Parse the command line arguments
     let args = Args::parse();
+    // Initialize the logger
+    init_logger(args.log_file);
 
     let font_path = std::path::Path::new(&args.input);
 
