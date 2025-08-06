@@ -570,7 +570,7 @@ fn get_buffer_with_pt_size_fits_width<T: Fn(f32) -> f32>(
                 tracing::debug!(
                     text,
                     final_font_size,
-                    "Found appropriate size for text: {text} with size: {size:?}; and font size: {font_size}"
+                    "Found appropriate size: {size:?}; font size: {final_font_size}"
                 );
                 borrowed_buffer.set_size(Some(size.w), Some(size.h));
                 return Ok(buffer);
