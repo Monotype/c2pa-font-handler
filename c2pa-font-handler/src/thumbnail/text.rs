@@ -336,6 +336,11 @@ impl<'a> FontSystemConfig<'a> {
             total_width_padding,
         }
     }
+
+    /// Create a new font system configuration builder
+    pub fn builder() -> FontSystemConfigBuilder<'a> {
+        FontSystemConfigBuilder::new()
+    }
 }
 
 impl Default for FontSystemConfig<'static> {
@@ -348,6 +353,105 @@ impl Default for FontSystemConfig<'static> {
             point_size_step: Self::POINT_SIZE_STEP,
             starting_point_size: Self::STARTING_POINT_SIZE,
             total_width_padding: Self::TOTAL_WIDTH_PADDING,
+        }
+    }
+}
+
+/// Builder for the font system configuration, allowing for more flexible
+/// configuration of the font system parameters.
+#[derive(Default)]
+pub struct FontSystemConfigBuilder<'a> {
+    /// The default locale to use for the font system
+    default_locale: Option<&'a str>,
+    /// The line height factor for the thumbnail
+    line_height_factor: Option<f32>,
+    /// The maximum width for the thumbnail
+    maximum_width: Option<u32>,
+    /// The minimum point size for the font system
+    minimum_point_size: Option<f32>,
+    /// The step size to reduce the point size when searching for a fitting
+    /// width
+    point_size_step: Option<f32>,
+    /// The starting point size for the font system
+    starting_point_size: Option<f32>,
+    /// The total width padding to apply to the thumbnail
+    total_width_padding: Option<f32>,
+}
+
+impl<'a> FontSystemConfigBuilder<'a> {
+    /// Create a new font system configuration builder
+    fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the default locale for the font system
+    pub fn default_locale(mut self, locale: &'a str) -> Self {
+        self.default_locale = Some(locale);
+        self
+    }
+
+    /// Set the line height factor for the thumbnail
+    pub fn line_height_factor(mut self, factor: f32) -> Self {
+        self.line_height_factor = Some(factor);
+        self
+    }
+
+    /// Set the maximum width for the thumbnail
+    pub fn maximum_width(mut self, width: u32) -> Self {
+        self.maximum_width = Some(width);
+        self
+    }
+
+    /// Set the minimum point size for the font system
+    pub fn minimum_point_size(mut self, size: f32) -> Self {
+        self.minimum_point_size = Some(size);
+        self
+    }
+
+    /// Set the step size to reduce the point size when searching for a fitting
+    /// width
+    pub fn point_size_step(mut self, step: f32) -> Self {
+        self.point_size_step = Some(step);
+        self
+    }
+
+    /// Set the starting point size for the font system
+    pub fn starting_point_size(mut self, size: f32) -> Self {
+        self.starting_point_size = Some(size);
+        self
+    }
+
+    /// Set the total width padding to apply to the thumbnail
+    pub fn total_width_padding(mut self, padding: f32) -> Self {
+        self.total_width_padding = Some(padding);
+        self
+    }
+
+    /// Build the font system configuration from the builder parameters
+    pub fn build(self) -> FontSystemConfig<'a> {
+        let default_config = FontSystemConfig::default();
+        FontSystemConfig {
+            default_locale: self
+                .default_locale
+                .unwrap_or(default_config.default_locale),
+            line_height_factor: self
+                .line_height_factor
+                .unwrap_or(default_config.line_height_factor),
+            maximum_width: self
+                .maximum_width
+                .unwrap_or(default_config.maximum_width),
+            minimum_point_size: self
+                .minimum_point_size
+                .unwrap_or(default_config.minimum_point_size),
+            point_size_step: self
+                .point_size_step
+                .unwrap_or(default_config.point_size_step),
+            starting_point_size: self
+                .starting_point_size
+                .unwrap_or(default_config.starting_point_size),
+            total_width_padding: self
+                .total_width_padding
+                .unwrap_or(default_config.total_width_padding),
         }
     }
 }
@@ -462,13 +566,21 @@ fn get_buffer_with_pt_size_fits_width<T: Fn(f32) -> f32>(
             // There instances where the measured width was 0, but maybe this is
             // caught now by counting the number of layout runs?
             if size.w > 0.0 && size.w <= width {
+                let final_font_size = font_size;
+                tracing::debug!(
+                    text,
+                    final_font_size,
+                    "Found appropriate size for text: {text} with size: {size:?}; and font size: {font_size}"
+                );
                 borrowed_buffer.set_size(Some(size.w), Some(size.h));
                 return Ok(buffer);
             }
         }
         // Adjust and prepare to try again
         font_size -= config.point_size_step;
+        tracing::debug!("Adjusting font size to {font_size}");
         line_height = line_height_fn(font_size);
+        tracing::debug!("Adjusting line height to {line_height}");
 
         // Update the buffer with the new font size
         borrowed_buffer.set_metrics(Metrics::new(font_size, line_height));

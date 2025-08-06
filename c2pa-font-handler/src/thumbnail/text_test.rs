@@ -408,3 +408,84 @@ fn test_new_cosmic_text_thumbnail_generator_from_path() {
         "Expected thumbnail data to start with '<svg'"
     );
 }
+
+#[test]
+fn test_font_system_config_builder() {
+    let expected_locale = "en-US";
+    let expected_line_height_factor = 4.20;
+    let expected_maximum_width = 1024;
+    let expected_minimum_point_size = 8.0;
+    let expected_point_size_step = 2.3;
+    let expected_starting_point_size = 7.7;
+    let expected_total_width_padding = 100.0;
+    let config = FontSystemConfig::builder()
+        .default_locale(expected_locale)
+        .line_height_factor(expected_line_height_factor)
+        .maximum_width(expected_maximum_width)
+        .minimum_point_size(expected_minimum_point_size)
+        .point_size_step(expected_point_size_step)
+        .starting_point_size(expected_starting_point_size)
+        .total_width_padding(expected_total_width_padding)
+        .build();
+    assert_eq!(
+        config.default_locale, expected_locale,
+        "Expected default locale to match"
+    );
+    assert_eq!(
+        config.line_height_factor, expected_line_height_factor,
+        "Expected line height factor to match"
+    );
+    assert_eq!(
+        config.maximum_width, expected_maximum_width,
+        "Expected maximum width to match"
+    );
+    assert_eq!(
+        config.minimum_point_size, expected_minimum_point_size,
+        "Expected minimum point size to match"
+    );
+    assert_eq!(
+        config.point_size_step, expected_point_size_step,
+        "Expected point size step to match"
+    );
+    assert_eq!(
+        config.starting_point_size, expected_starting_point_size,
+        "Expected starting point size to match"
+    );
+    assert_eq!(
+        config.total_width_padding, expected_total_width_padding,
+        "Expected total width padding to match"
+    );
+}
+
+#[test]
+fn test_font_system_config_builder_with_defaults() {
+    let config = FontSystemConfig::builder().build();
+    assert_eq!(
+        config.default_locale, "en-US",
+        "Expected default locale to be 'en-US'"
+    );
+    assert_eq!(
+        config.line_height_factor, 1.075,
+        "Expected default line height factor to be 1.075"
+    );
+    assert_eq!(
+        config.maximum_width, 400,
+        "Expected default maximum width to be 400"
+    );
+    assert_eq!(
+        config.minimum_point_size, 6.0,
+        "Expected default minimum point size to be 6.0"
+    );
+    assert_eq!(
+        config.point_size_step, 8.0,
+        "Expected default point size step to be 8.0"
+    );
+    assert_eq!(
+        config.starting_point_size, 512.0,
+        "Expected default starting point size to be 512.0"
+    );
+    assert_eq!(
+        config.total_width_padding, 0.1,
+        "Expected default total width padding to be 0.1"
+    );
+}
