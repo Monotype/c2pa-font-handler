@@ -839,6 +839,7 @@ fn get_buffer_with_binary_search<T: Fn(f32) -> f32>(
 }
 
 /// Creates a buffer with the given fixed size, returning an error if the text
+/// does not fit within the width and height.
 fn get_buffer_with_fixed_size<T: Fn(f32) -> f32>(
     text: &str,
     attrs: Attrs<'_>,
