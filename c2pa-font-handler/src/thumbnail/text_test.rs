@@ -26,8 +26,8 @@ use crate::{
     thumbnail::{
         error::FontThumbnailError,
         text::{
-            load_font_data, FontNameInfo, FontSizeSearchStrategy,
-            FontSystemConfig, LoadedFont,
+            clip_text_to_ellipsis, load_font_data, FontNameInfo,
+            FontSizeSearchStrategy, FontSystemConfig, LoadedFont,
         },
         BinarySearchContext, CosmicTextThumbnailGenerator, LinearSearchContext,
         ThumbnailGenerator,
@@ -667,4 +667,27 @@ fn test_create_fixed_font_size_search_strategy() {
         strategy,
         FontSizeSearchStrategy::Fixed(point_size) if point_size == 0.0
     ));
+}
+
+#[test]
+fn test_clip_text_with_ellipsis() {
+    let text = "This is a long text that should be clipped with an ellipsis.";
+    let clipped_text = clip_text_to_ellipsis(text);
+    // The lengths should still match, but the last three characters
+    // should be replaced with an ellipsis.
+    assert_eq!(text.len(), clipped_text.len(),);
+    assert!(
+        clipped_text.ends_with("..."),
+        "Expected clipped text to end with ellipsis"
+    );
+
+    let text = "TXT";
+    let clipped_text = clip_text_to_ellipsis(text);
+    // The lengths should still match, but the last three characters
+    // should be replaced with an ellipsis.
+    assert_eq!(text.len(), clipped_text.len(),);
+    assert!(
+        !clipped_text.ends_with("..."),
+        "Did not expect clipped text to end with ellipsis for short text"
+    );
 }

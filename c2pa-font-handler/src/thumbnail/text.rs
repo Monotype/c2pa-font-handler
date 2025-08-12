@@ -617,6 +617,22 @@ pub fn create_font_system<R: Read + Seek + ?Sized>(
     })
 }
 
+/// If the string is longer than 3 characters, it will replace the last 3
+/// characters with an ellipsis ("..."). Otherwise, it will return the
+/// original string.
+fn clip_text_to_ellipsis(text: &str) -> String {
+    let char_count = text.chars().count();
+    // If the text is longer than 3 characters, replace the last 3 with ellipsis
+    if char_count > 3 {
+        format!(
+            "{}...",
+            text.chars().take(char_count - 3).collect::<String>()
+        )
+    } else {
+        text.to_string()
+    }
+}
+
 /// Finds a buffer that fits the given width, using the configured search
 /// strategy to determine the font size.
 ///
@@ -688,11 +704,7 @@ fn get_buffer_with_linear_search<T: Fn(f32) -> f32>(
     borrowed_buffer.set_metrics(Metrics::new(font_size, line_height));
     borrowed_buffer.shape_until_scroll(true);
     // get the text replacing the last 3 characters with ellipsis
-    let text = if text.len() > 3 {
-        format!("{}...", text.split_at(text.len() - 3).0)
-    } else {
-        text.to_string()
-    };
+    let text = clip_text_to_ellipsis(text);
     borrowed_buffer.set_text(&text, &attrs, cosmic_text::Shaping::Advanced);
     let size = measure_text(&text, &attrs, &mut borrowed_buffer)?;
     // We still run the chance of an invalid size returned, so take that into
@@ -739,7 +751,7 @@ fn get_buffer_with_binary_search<T: Fn(f32) -> f32>(
     // Keep up with what was the best size
     let mut best_size: Option<(f32, Buffer)> = None;
 
-    const EPSILON: f32 = 1.01; // A small value to avoid infinite loop
+    const EPSILON: f32 = 1.0; // A small value to avoid infinite loop
 
     while high - low > EPSILON {
         // Calculate the midpoint of the current range, rounding to the nearest
@@ -811,11 +823,7 @@ fn get_buffer_with_binary_search<T: Fn(f32) -> f32>(
         borrowed_buffer.set_metrics(Metrics::new(final_font_size, line_height));
         borrowed_buffer.set_wrap(cosmic_text::Wrap::Glyph);
         // get the text replacing the last 3 characters with ellipsis
-        let text = if text.len() > 3 {
-            format!("{}...", text.split_at(text.len() - 3).0)
-        } else {
-            text.to_string()
-        };
+        let text = clip_text_to_ellipsis(text);
         borrowed_buffer.set_text(&text, &attrs, cosmic_text::Shaping::Advanced);
         borrowed_buffer.shape_until_scroll(true);
         let size = measure_text(&text, &attrs, &mut borrowed_buffer)?;
