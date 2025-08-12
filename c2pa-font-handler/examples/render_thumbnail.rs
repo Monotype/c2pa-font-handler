@@ -24,6 +24,9 @@ use tracing_subscriber::{
     EnvFilter,
 };
 
+/// Default font size used when the fixed search strategy is selected.
+const DEFAULT_FIXED_FONT_SIZE: f32 = 32.0;
+
 /// Types of thumbnails that can be generated.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
 enum ThumbnailType {
@@ -31,6 +34,52 @@ enum ThumbnailType {
     Svg,
     /// A thumbnail in PNG format
     Png,
+}
+
+/// Strategies for searching for the appropriate font size.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+enum SearchStrategy {
+    /// A linear search strategy for font sizes
+    ///
+    /// # Remarks
+    /// A default linear configuration will be used.
+    Linear,
+    /// A binary search strategy for font sizes
+    ///
+    /// # Remarks
+    /// A default binary configuration will be used.
+    Binary,
+    /// A fixed font size; this will use the default fixed font size
+    /// defined by `DEFAULT_FIXED_FONT_SIZE`.
+    Fixed,
+}
+
+// Allow for conversion from `SearchStrategy` to the internal
+// `FontSizeSearchStrategy` used by the thumbnail generator.
+impl From<SearchStrategy>
+    for c2pa_font_handler::thumbnail::FontSizeSearchStrategy
+{
+    fn from(strategy: SearchStrategy) -> Self {
+        match strategy {
+            SearchStrategy::Linear => {
+                c2pa_font_handler::thumbnail::FontSizeSearchStrategy::Linear(
+                    c2pa_font_handler::thumbnail::LinearSearchContext::default(
+                    ),
+                )
+            }
+            SearchStrategy::Binary => {
+                c2pa_font_handler::thumbnail::FontSizeSearchStrategy::Binary(
+                    c2pa_font_handler::thumbnail::BinarySearchContext::default(
+                    ),
+                )
+            }
+            SearchStrategy::Fixed => {
+                c2pa_font_handler::thumbnail::FontSizeSearchStrategy::Fixed(
+                    DEFAULT_FIXED_FONT_SIZE,
+                )
+            }
+        }
+    }
 }
 
 /// An example of reading a WOFF file and writing information about it to the
@@ -50,6 +99,9 @@ struct Args {
     /// written to stdout.
     #[clap(long, default_value = None)]
     log_file: Option<String>,
+    /// The search strategy for finding the appropriate font size
+    #[clap(long, default_value = "binary")]
+    search_strategy: SearchStrategy,
 }
 
 /// Destination for logging output.
@@ -107,7 +159,12 @@ async fn main() -> Result<(), anyhow::Error> {
     let generator: Box<dyn ThumbnailGenerator> = match args.thumbnail_type {
         ThumbnailType::Svg => {
             let renderer = Box::new(SvgThumbnailRenderer::default());
-            Box::new(CosmicTextThumbnailGenerator::new(renderer))
+            Box::new(CosmicTextThumbnailGenerator::new_with_config(
+                renderer,
+                c2pa_font_handler::thumbnail::FontSystemConfig::builder()
+                    .search_strategy(args.search_strategy.into())
+                    .build(),
+            ))
         }
         ThumbnailType::Png => {
             let renderer = Box::new(PngThumbnailRenderer::default());

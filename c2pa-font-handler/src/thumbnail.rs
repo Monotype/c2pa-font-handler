@@ -32,7 +32,10 @@ pub use svg_thumbnail::{SvgThumbnailRenderer, SvgThumbnailRendererConfig};
 
 pub(crate) mod text;
 use text::TextFontSystemContext;
-pub use text::{CosmicTextThumbnailGenerator, FontSystemConfig};
+pub use text::{
+    BinarySearchContext, CosmicTextThumbnailGenerator, FontSizeSearchStrategy,
+    FontSystemConfig, LinearSearchContext,
+};
 
 use crate::mime_type::{FontMimeTypeGuesser, FontMimeTypes};
 

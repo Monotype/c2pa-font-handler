@@ -25,8 +25,12 @@ use crate::{
     mime_type::FontMimeTypes,
     thumbnail::{
         error::FontThumbnailError,
-        text::{load_font_data, FontNameInfo, FontSystemConfig, LoadedFont},
-        CosmicTextThumbnailGenerator, ThumbnailGenerator,
+        text::{
+            load_font_data, FontNameInfo, FontSizeSearchStrategy,
+            FontSystemConfig, LoadedFont,
+        },
+        BinarySearchContext, CosmicTextThumbnailGenerator, LinearSearchContext,
+        ThumbnailGenerator,
     },
 };
 
@@ -67,8 +71,13 @@ fn test_no_fallback_callbacks() {
 // Check the construction of the FontSystemConfig struct.
 #[test]
 fn test_new_font_system_config() {
-    let config =
-        FontSystemConfig::new("en-US", 4.20, 1024, 8.0, 2.3, 7.7, 100.0);
+    let config = FontSystemConfig::new(
+        "en-US",
+        4.20,
+        1024,
+        100.0,
+        FontSizeSearchStrategy::Fixed(12.0),
+    );
     assert_eq!(
         config.default_locale, "en-US",
         "Expected default locale to be 'en-US'"
@@ -82,26 +91,51 @@ fn test_new_font_system_config() {
         "Expected max text width to be 1024"
     );
     assert_eq!(
-        config.minimum_point_size, 8.0,
-        "Expected minimum point size to be 8.0"
-    );
-    assert_eq!(
-        config.point_size_step, 2.3,
-        "Expected point size step to be 2.3"
-    );
-    assert_eq!(
-        config.starting_point_size, 7.7,
-        "Expected starting point size to be 7.7"
-    );
-    assert_eq!(
         config.total_width_padding, 100.0,
         "Expected total width padding to be 100.0"
     );
+    assert!(matches!(
+        config.font_size_search_strategy,
+        FontSizeSearchStrategy::Fixed(12.0),
+    ));
 }
 
+/// Tests the creation of a font system with the default configuration.
 #[test]
-fn test_create_font_system() {
+fn test_create_font_system_default_config() {
     let config = FontSystemConfig::default();
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut stream = Cursor::new(font_data);
+    let result = create_font_system(&config, &mut stream);
+    assert!(result.is_ok(), "Expected successful font system creation");
+}
+
+/// Tests the creation of a font system with a default binary search strategy.
+#[test]
+fn test_create_font_system_with_default_binary() {
+    let config = FontSystemConfig::new(
+        "en-US",
+        1.075,
+        400,
+        0.1,
+        FontSizeSearchStrategy::Binary(BinarySearchContext::default()),
+    );
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut stream = Cursor::new(font_data);
+    let result = create_font_system(&config, &mut stream);
+    assert!(result.is_ok(), "Expected successful font system creation");
+}
+
+/// Tests the creation of a font system with a default linear search strategy.
+#[test]
+fn test_create_font_system_with_default_linear() {
+    let config = FontSystemConfig::new(
+        "en-US",
+        1.075,
+        400,
+        0.1,
+        FontSizeSearchStrategy::Linear(LinearSearchContext::default()),
+    );
     let font_data = include_bytes!("../../../.devtools/font.otf");
     let mut stream = Cursor::new(font_data);
     let result = create_font_system(&config, &mut stream);
@@ -126,14 +160,19 @@ fn test_measure_text() {
     assert!(height > 0.0, "Expected height to be greater than 0.0");
 }
 
+/// Test the method correctly creates a font system with clipping
+/// when the font size search strategy is binary.
 #[test]
-fn test_create_font_system_with_clipping() {
+fn test_create_font_system_with_clipping_with_binary() {
     let config = FontSystemConfig {
         default_locale: "en-US",
         maximum_width: 100,
-        minimum_point_size: 80.0, /* Point size to make sure we do not have
-                                   * enough space to fit the text, but can
-                                   * clip it. */
+        /* Point size to make sure we do not have
+         * enough space to fit the text, but can
+         * clip it. */
+        font_size_search_strategy: FontSizeSearchStrategy::binary(
+            80.0, 50.0, 70.0,
+        ),
         ..Default::default()
     };
     let font_data = include_bytes!("../../../.devtools/font.otf");
@@ -145,17 +184,96 @@ fn test_create_font_system_with_clipping() {
     let (_font_system, _swash_cache, text_buffer) =
         context.mut_cosmic_text_parts();
     assert!(
-        matches!(text_buffer.size(), (Some(_), Some(_))),
+        matches!(
+            text_buffer.size(),
+            (Some(width), Some(height)) if width > 80.0 && height > 50.0
+        ),
         "Expected buffer size to be set, got: {:?}",
         text_buffer.size()
     );
+    assert_eq!("AnEmptyFont Regu...", text_buffer.lines[0].text());
+}
+
+/// Test the error case when attempting to create a font system
+/// with a font size search strategy that fails to find an appropriate size.
+#[test]
+fn test_create_font_system_failing_to_find_appropriate_size_for_linear() {
+    let config = FontSystemConfig {
+        total_width_padding: 100.0,
+        font_size_search_strategy: FontSizeSearchStrategy::linear(
+            100.0, // starting point size
+            8.0,   // step size
+            80.0,  // minimum point size
+        ),
+        ..Default::default()
+    };
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut stream = Cursor::new(font_data);
+    let result = create_font_system(&config, &mut stream);
+    assert!(
+        result.is_err(),
+        "Expected to fail to create font system creation"
+    );
+    let error = result.unwrap_err();
+    assert!(
+        matches!(error, FontThumbnailError::FailedToFindAppropriateSize),
+        "Expected error to be FailedToFindAppropriateSize; found: {error:?}"
+    );
+}
+
+/// Test the method correctly creates a font system with clipping
+/// when the font size search strategy is linear.
+#[test]
+fn test_create_font_system_with_clipping_with_linear() {
+    let config = FontSystemConfig {
+        default_locale: "en-US",
+        maximum_width: 100,
+        /* Point size to make sure we do not have
+         * enough space to fit the text, but can
+         * clip it. */
+        font_size_search_strategy: FontSizeSearchStrategy::linear(
+            100.0, 8.0, 80.0,
+        ),
+        ..Default::default()
+    };
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut stream = Cursor::new(font_data);
+    let result = create_font_system(&config, &mut stream);
+    assert!(result.is_ok(), "Expected successful font system creation with clipping; got error: {result:?}");
+    let mut context = result.unwrap();
+    assert_eq!(Some(0.0), context.angle());
+    let (_font_system, _swash_cache, text_buffer) =
+        context.mut_cosmic_text_parts();
+    assert!(
+        matches!(
+            text_buffer.size(),
+            (Some(width), Some(height)) if width > 70.0 && height > 80.0
+        ),
+        "Expected buffer size to be set, got: {:?}",
+        text_buffer.size()
+    );
+    assert_eq!("AnEmptyFont Regu...", text_buffer.lines[0].text());
 }
 
 #[test]
-fn test_create_font_system_failing_to_find_appropriate_size() {
+fn test_create_font_system_with_fixed_strategy() {
     let config = FontSystemConfig {
-        minimum_point_size: 8.0,
+        font_size_search_strategy: FontSizeSearchStrategy::Fixed(100.0),
+        ..Default::default()
+    };
+    let font_data = include_bytes!("../../../.devtools/font.otf");
+    let mut stream = Cursor::new(font_data);
+    let result = create_font_system(&config, &mut stream);
+    assert!(result.is_ok(), "Expected successful font system creation with fixed strategy; got error: {result:?}");
+}
+
+/// Test the method correctly catches when the font system creation fails
+/// for a fixed font size that is too small.
+#[test]
+fn test_create_font_system_failing_to_find_appropriate_size_for_fixed() {
+    let config = FontSystemConfig {
         total_width_padding: 100.0,
+        font_size_search_strategy: FontSizeSearchStrategy::Fixed(8.0),
         ..Default::default()
     };
     let font_data = include_bytes!("../../../.devtools/font.otf");
@@ -414,18 +532,14 @@ fn test_font_system_config_builder() {
     let expected_locale = "en-US";
     let expected_line_height_factor = 4.20;
     let expected_maximum_width = 1024;
-    let expected_minimum_point_size = 8.0;
-    let expected_point_size_step = 2.3;
-    let expected_starting_point_size = 7.7;
     let expected_total_width_padding = 100.0;
+    let expected_search_strategy = FontSizeSearchStrategy::Fixed(12.0);
     let config = FontSystemConfig::builder()
         .default_locale(expected_locale)
         .line_height_factor(expected_line_height_factor)
         .maximum_width(expected_maximum_width)
-        .minimum_point_size(expected_minimum_point_size)
-        .point_size_step(expected_point_size_step)
-        .starting_point_size(expected_starting_point_size)
         .total_width_padding(expected_total_width_padding)
+        .search_strategy(expected_search_strategy.clone())
         .build();
     assert_eq!(
         config.default_locale, expected_locale,
@@ -440,20 +554,16 @@ fn test_font_system_config_builder() {
         "Expected maximum width to match"
     );
     assert_eq!(
-        config.minimum_point_size, expected_minimum_point_size,
-        "Expected minimum point size to match"
-    );
-    assert_eq!(
-        config.point_size_step, expected_point_size_step,
-        "Expected point size step to match"
-    );
-    assert_eq!(
-        config.starting_point_size, expected_starting_point_size,
-        "Expected starting point size to match"
-    );
-    assert_eq!(
         config.total_width_padding, expected_total_width_padding,
         "Expected total width padding to match"
+    );
+    assert!(
+        matches!(
+            config.font_size_search_strategy,
+            FontSizeSearchStrategy::Fixed(point_size)
+            if point_size == 12.0
+        ),
+        "Expected font size search strategy to match"
     );
 }
 
@@ -473,19 +583,86 @@ fn test_font_system_config_builder_with_defaults() {
         "Expected default maximum width to be 400"
     );
     assert_eq!(
-        config.minimum_point_size, 6.0,
-        "Expected default minimum point size to be 6.0"
-    );
-    assert_eq!(
-        config.point_size_step, 8.0,
-        "Expected default point size step to be 8.0"
-    );
-    assert_eq!(
-        config.starting_point_size, 512.0,
-        "Expected default starting point size to be 512.0"
-    );
-    assert_eq!(
         config.total_width_padding, 0.1,
         "Expected default total width padding to be 0.1"
     );
+}
+
+#[test]
+fn test_create_binary_font_size_search_strategy() {
+    let expected_starting_point_size = 12.0;
+    let expected_minimum_point_size = 6.0;
+    let expected_maximum_point_size = 100.0;
+    let strategy = FontSizeSearchStrategy::binary(
+        expected_starting_point_size,
+        expected_minimum_point_size,
+        expected_maximum_point_size,
+    );
+    assert!(matches!(
+        strategy,
+        FontSizeSearchStrategy::Binary(BinarySearchContext {
+            starting_point_size,
+            minimum_point_size,
+            maximum_point_size,
+        })
+        if starting_point_size == expected_starting_point_size
+           && minimum_point_size == expected_minimum_point_size
+           && maximum_point_size ==expected_maximum_point_size
+    ));
+
+    let strategy =
+        FontSizeSearchStrategy::Binary(BinarySearchContext::default());
+    assert!(matches!(
+        strategy,
+        FontSizeSearchStrategy::Binary(BinarySearchContext {
+            starting_point_size,
+            minimum_point_size,
+            maximum_point_size,
+        }) if starting_point_size == 42.0 && minimum_point_size == 6.0 && maximum_point_size == 512.0
+    ));
+}
+
+#[test]
+fn test_create_linear_font_size_search_strategy() {
+    let strategy = FontSizeSearchStrategy::linear(
+        100.0, // start
+        2.0,   // step
+        10.0,  // min
+    );
+    assert!(matches!(
+        strategy,
+        FontSizeSearchStrategy::Linear(LinearSearchContext {
+            starting_point_size,
+            point_size_step,
+            minimum_point_size
+        }) if starting_point_size== 100.0 && point_size_step == 2.0 && minimum_point_size== 10.0
+    ));
+
+    let strategy =
+        FontSizeSearchStrategy::Linear(LinearSearchContext::default());
+    assert!(matches!(
+        strategy,
+        FontSizeSearchStrategy::Linear(LinearSearchContext {
+            starting_point_size,
+            point_size_step,
+            minimum_point_size,
+        }) if starting_point_size == 512.0 && point_size_step == 8.0 && minimum_point_size == 6.0
+    ));
+}
+
+#[test]
+fn test_create_fixed_font_size_search_strategy() {
+    let expected_point_size = 12.0;
+    let strategy = FontSizeSearchStrategy::fixed(expected_point_size);
+    assert!(matches!(
+        strategy,
+        FontSizeSearchStrategy::Fixed(point_size)
+        if point_size == expected_point_size
+    ));
+
+    let strategy = FontSizeSearchStrategy::Fixed(0.0);
+    assert!(matches!(
+        strategy,
+        FontSizeSearchStrategy::Fixed(point_size) if point_size == 0.0
+    ));
 }
