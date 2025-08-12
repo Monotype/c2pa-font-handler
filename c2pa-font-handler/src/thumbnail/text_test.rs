@@ -191,6 +191,7 @@ fn test_create_font_system_with_clipping_with_binary() {
         "Expected buffer size to be set, got: {:?}",
         text_buffer.size()
     );
+    // cspell:ignore Regu
     assert_eq!("AnEmptyFont Regu...", text_buffer.lines[0].text());
 }
 
@@ -252,6 +253,7 @@ fn test_create_font_system_with_clipping_with_linear() {
         "Expected buffer size to be set, got: {:?}",
         text_buffer.size()
     );
+    // cspell:ignore Regu
     assert_eq!("AnEmptyFont Regu...", text_buffer.lines[0].text());
 }
 
