@@ -278,6 +278,142 @@ impl Fallback for NoFallback {
     }
 }
 
+/// Context for linear font size search parameters
+#[derive(Debug, Clone, Copy)]
+pub struct LinearSearchContext {
+    /// Starting point size for linear search strategy
+    pub starting_point_size: f32,
+    /// Point size step to reduce the point size when searching for a fitting
+    pub point_size_step: f32,
+    /// Minimum point size to stop searching at
+    pub minimum_point_size: f32,
+}
+
+impl LinearSearchContext {
+    /// Default minimum point size for linear search strategy
+    const DEFAULT_MINIMUM_POINT_SIZE: f32 = 6.0;
+    /// Default point size step for linear search strategy
+    const DEFAULT_POINT_SIZE_STEP: f32 = 8.0;
+    /// Default starting point size for linear search strategy
+    const DEFAULT_STARTING_POINT_SIZE: f32 = 512.0;
+
+    /// Create a new linear context with the given parameters
+    pub fn new(
+        starting_point_size: f32,
+        point_size_step: f32,
+        minimum_point_size: f32,
+    ) -> Self {
+        Self {
+            starting_point_size,
+            point_size_step,
+            minimum_point_size,
+        }
+    }
+}
+impl Default for LinearSearchContext {
+    fn default() -> Self {
+        Self {
+            starting_point_size: Self::DEFAULT_STARTING_POINT_SIZE,
+            point_size_step: Self::DEFAULT_POINT_SIZE_STEP,
+            minimum_point_size: Self::DEFAULT_MINIMUM_POINT_SIZE,
+        }
+    }
+}
+
+/// Context for binary font size search parameters
+#[derive(Debug, Clone, Copy)]
+pub struct BinarySearchContext {
+    /// Starting point size for binary search strategy
+    pub starting_point_size: f32,
+    /// Minimum point size to stop searching at
+    pub minimum_point_size: f32,
+    /// Maximum point size to stop searching at
+    pub maximum_point_size: f32,
+}
+
+impl BinarySearchContext {
+    /// Default maximum point size for binary search strategy
+    const DEFAULT_MAXIMUM_POINT_SIZE: f32 = 512.0;
+    /// Default minimum point size for binary search strategy
+    const DEFAULT_MINIMUM_POINT_SIZE: f32 = 6.0;
+    /// Default starting point size for binary search strategy
+    const DEFAULT_STARTING_POINT_SIZE: f32 = 42.0;
+
+    /// Create a new binary context with the given parameters
+    pub fn new(
+        starting_point_size: f32,
+        minimum_point_size: f32,
+        maximum_point_size: f32,
+    ) -> Self {
+        Self {
+            starting_point_size,
+            minimum_point_size,
+            maximum_point_size,
+        }
+    }
+}
+
+impl Default for BinarySearchContext {
+    fn default() -> Self {
+        Self::new(
+            Self::DEFAULT_STARTING_POINT_SIZE,
+            Self::DEFAULT_MINIMUM_POINT_SIZE,
+            Self::DEFAULT_MAXIMUM_POINT_SIZE,
+        )
+    }
+}
+
+/// Strategy for searching for the appropriate font size for thumbnail
+/// rendering.
+#[derive(Debug, Clone)]
+pub enum FontSizeSearchStrategy {
+    /// Try every step from large to small (current behavior).
+    Linear(LinearSearchContext),
+    /// Use binary search to find the best fitting font size.
+    Binary(BinarySearchContext),
+    /// Use a fixed font size (no search).
+    Fixed(f32),
+}
+
+impl FontSizeSearchStrategy {
+    /// Creates a linear search font size strategy
+    pub fn linear(
+        starting_point_size: f32,
+        point_size_step: f32,
+        minimum_point_size: f32,
+    ) -> Self {
+        Self::Linear(LinearSearchContext::new(
+            starting_point_size,
+            point_size_step,
+            minimum_point_size,
+        ))
+    }
+
+    /// Creates a binary search font size strategy
+    pub fn binary(
+        starting_point_size: f32,
+        minimum_point_size: f32,
+        maximum_point_size: f32,
+    ) -> Self {
+        Self::Binary(BinarySearchContext::new(
+            starting_point_size,
+            minimum_point_size,
+            maximum_point_size,
+        ))
+    }
+
+    /// Creates a fixed font size strategy
+    pub fn fixed(size: f32) -> Self {
+        Self::Fixed(size)
+    }
+}
+
+impl Default for FontSizeSearchStrategy {
+    fn default() -> Self {
+        Self::Binary(BinarySearchContext::default())
+    }
+}
+
 /// Configuration for the font system used to generate thumbnails
 #[derive(Debug, Clone)]
 pub struct FontSystemConfig<'a> {
@@ -287,15 +423,10 @@ pub struct FontSystemConfig<'a> {
     line_height_factor: f32,
     /// The maximum width for the thumbnail
     maximum_width: u32,
-    /// The minimum point size for the font system
-    minimum_point_size: f32,
-    /// The step size to reduce the point size when searching for a fitting
-    /// width
-    point_size_step: f32,
-    /// The starting point size for the font system
-    starting_point_size: f32,
     /// The total width padding to apply to the thumbnail
     total_width_padding: f32,
+    /// The strategy to use for searching for the appropriate font size
+    font_size_search_strategy: FontSizeSearchStrategy,
 }
 
 impl FontSystemConfig<'static> {
@@ -305,12 +436,6 @@ impl FontSystemConfig<'static> {
     const LINE_HEIGHT_FACTOR: f32 = 1.075;
     /// Maximum width for the thumbnail
     const MAXIMUM_WIDTH: u32 = 400;
-    /// Minimum point size for the font system
-    const MINIMUM_POINT_SIZE: f32 = 6.0;
-    /// Step size to reduce the point size when searching for a fitting width
-    const POINT_SIZE_STEP: f32 = 8.0;
-    /// Starting point size for the font system
-    const STARTING_POINT_SIZE: f32 = 512.0;
     /// Total width padding to apply to the thumbnail
     const TOTAL_WIDTH_PADDING: f32 = 0.1; // 10% padding
 }
@@ -321,19 +446,15 @@ impl<'a> FontSystemConfig<'a> {
         default_locale: &'a str,
         line_height_factor: f32,
         maximum_width: u32,
-        minimum_point_size: f32,
-        point_size_step: f32,
-        starting_point_size: f32,
         total_width_padding: f32,
+        font_size_search_strategy: FontSizeSearchStrategy,
     ) -> Self {
         Self {
             default_locale,
             line_height_factor,
             maximum_width,
-            minimum_point_size,
-            point_size_step,
-            starting_point_size,
             total_width_padding,
+            font_size_search_strategy,
         }
     }
 
@@ -345,15 +466,13 @@ impl<'a> FontSystemConfig<'a> {
 
 impl Default for FontSystemConfig<'static> {
     fn default() -> Self {
-        Self {
-            default_locale: Self::DEFAULT_LOCALE,
-            line_height_factor: Self::LINE_HEIGHT_FACTOR,
-            maximum_width: Self::MAXIMUM_WIDTH,
-            minimum_point_size: Self::MINIMUM_POINT_SIZE,
-            point_size_step: Self::POINT_SIZE_STEP,
-            starting_point_size: Self::STARTING_POINT_SIZE,
-            total_width_padding: Self::TOTAL_WIDTH_PADDING,
-        }
+        Self::new(
+            Self::DEFAULT_LOCALE,
+            Self::LINE_HEIGHT_FACTOR,
+            Self::MAXIMUM_WIDTH,
+            Self::TOTAL_WIDTH_PADDING,
+            FontSizeSearchStrategy::default(),
+        )
     }
 }
 
@@ -367,15 +486,10 @@ pub struct FontSystemConfigBuilder<'a> {
     line_height_factor: Option<f32>,
     /// The maximum width for the thumbnail
     maximum_width: Option<u32>,
-    /// The minimum point size for the font system
-    minimum_point_size: Option<f32>,
-    /// The step size to reduce the point size when searching for a fitting
-    /// width
-    point_size_step: Option<f32>,
-    /// The starting point size for the font system
-    starting_point_size: Option<f32>,
     /// The total width padding to apply to the thumbnail
     total_width_padding: Option<f32>,
+    /// The strategy to use for searching for the appropriate font size
+    font_size_search_strategy: Option<FontSizeSearchStrategy>,
 }
 
 impl<'a> FontSystemConfigBuilder<'a> {
@@ -402,22 +516,9 @@ impl<'a> FontSystemConfigBuilder<'a> {
         self
     }
 
-    /// Set the minimum point size for the font system
-    pub fn minimum_point_size(mut self, size: f32) -> Self {
-        self.minimum_point_size = Some(size);
-        self
-    }
-
-    /// Set the step size to reduce the point size when searching for a fitting
-    /// width
-    pub fn point_size_step(mut self, step: f32) -> Self {
-        self.point_size_step = Some(step);
-        self
-    }
-
-    /// Set the starting point size for the font system
-    pub fn starting_point_size(mut self, size: f32) -> Self {
-        self.starting_point_size = Some(size);
+    /// Set the strategy to use for searching for the appropriate font size
+    pub fn search_strategy(mut self, strategy: FontSizeSearchStrategy) -> Self {
+        self.font_size_search_strategy = Some(strategy);
         self
     }
 
@@ -440,18 +541,12 @@ impl<'a> FontSystemConfigBuilder<'a> {
             maximum_width: self
                 .maximum_width
                 .unwrap_or(default_config.maximum_width),
-            minimum_point_size: self
-                .minimum_point_size
-                .unwrap_or(default_config.minimum_point_size),
-            point_size_step: self
-                .point_size_step
-                .unwrap_or(default_config.point_size_step),
-            starting_point_size: self
-                .starting_point_size
-                .unwrap_or(default_config.starting_point_size),
             total_width_padding: self
                 .total_width_padding
                 .unwrap_or(default_config.total_width_padding),
+            font_size_search_strategy: self
+                .font_size_search_strategy
+                .unwrap_or(default_config.font_size_search_strategy),
         }
     }
 }
@@ -514,7 +609,6 @@ pub fn create_font_system<R: Read + Seek + ?Sized>(
         |x| (max_height * config.line_height_factor * x).ceil(),
     )?;
 
-    //Ok((buffer, font_system, swash_cache, angle))
     Ok(TextFontSystemContext {
         font_system,
         swash_cache,
@@ -523,21 +617,21 @@ pub fn create_font_system<R: Read + Seek + ?Sized>(
     })
 }
 
-/// Finds the point size that fits the width and creates a buffer with the text
-/// and has it ready for rendering.
+/// Finds a buffer that fits the given width, using the configured search
+/// strategy to determine the font size.
 ///
 /// # Remarks
-/// The `line_height_fn` is a function that takes the font size and should be
-/// used to calculate the line height.
-fn get_buffer_with_pt_size_fits_width<T: Fn(f32) -> f32>(
+/// A linear search strategy will try every step from large to small.
+fn get_buffer_with_linear_search<T: Fn(f32) -> f32>(
     text: &str,
     attrs: Attrs,
     font_system: &mut FontSystem,
     config: &FontSystemConfig,
     line_height_fn: T,
+    linear_search_context: &LinearSearchContext,
 ) -> Result<Buffer, FontThumbnailError> {
     // Starting point size
-    let mut font_size: f32 = config.starting_point_size;
+    let mut font_size: f32 = linear_search_context.starting_point_size;
     // Generate the line height from the font height
     let mut line_height: f32 = line_height_fn(font_size);
 
@@ -553,7 +647,8 @@ fn get_buffer_with_pt_size_fits_width<T: Fn(f32) -> f32>(
     let mut borrowed_buffer = buffer.borrow_with(font_system);
 
     // Loop until we find the right size to fit within the maximum width
-    while font_size > config.minimum_point_size {
+
+    while font_size > linear_search_context.minimum_point_size {
         borrowed_buffer.set_size(Some(width), Some(height));
         borrowed_buffer.set_wrap(cosmic_text::Wrap::Glyph);
         borrowed_buffer.set_text(text, &attrs, cosmic_text::Shaping::Advanced);
@@ -577,7 +672,7 @@ fn get_buffer_with_pt_size_fits_width<T: Fn(f32) -> f32>(
             }
         }
         // Adjust and prepare to try again
-        font_size -= config.point_size_step;
+        font_size -= linear_search_context.point_size_step;
         tracing::debug!("Adjusting font size to {font_size}");
         line_height = line_height_fn(font_size);
         tracing::debug!("Adjusting line height to {line_height}");
@@ -587,7 +682,7 @@ fn get_buffer_with_pt_size_fits_width<T: Fn(f32) -> f32>(
     }
     // At this point we have reached our minimum size, so setup to use it
     // which will result in text clipping, but that is fine
-    font_size = config.minimum_point_size;
+    font_size = linear_search_context.minimum_point_size;
     line_height = line_height_fn(font_size);
     borrowed_buffer.set_size(Some(width), Some(line_height));
     borrowed_buffer.set_metrics(Metrics::new(font_size, line_height));
@@ -607,6 +702,207 @@ fn get_buffer_with_pt_size_fits_width<T: Fn(f32) -> f32>(
         return Ok(buffer);
     }
     Err(FontThumbnailError::FailedToFindAppropriateSize)
+}
+
+/// Finds a buffer that fits the given width, using the configured binary search
+/// strategy
+fn get_buffer_with_binary_search<T: Fn(f32) -> f32>(
+    text: &str,
+    attrs: Attrs<'_>,
+    font_system: &mut FontSystem,
+    config: &FontSystemConfig<'_>,
+    line_height_fn: T,
+    context: &BinarySearchContext,
+) -> Result<Buffer, FontThumbnailError> {
+    /*
+     * With a stated maximum and minimum point size
+     * Take the integer midpoint of the maxima/minima
+     * Check if the entire text fits on one line within the width
+     *   [Yes] Then take midpoint of current point and the maxima, recheck
+     * width,         continuing until it doesn't fit and taking the last
+     * midpoint   [No] Then take midpoint of current point and the
+     * minima, recheck width,        continuing until it doesn't fit and
+     * taking the last midpoint
+     */
+    // Start by defining our highest size as the maximum point size
+    let mut high = context.maximum_point_size;
+    // And the lowest size as the minimum point size
+    let mut low = context.minimum_point_size;
+    // Calculate the width from the config, incorporating the total width
+    // padding
+    let width =
+        config.maximum_width as f32 * (1.0 - config.total_width_padding);
+    tracing::debug!(
+        "Starting binary search for font size in range [{low}, {high}] with width {width}"
+    );
+
+    // Keep up with what was the best size
+    let mut best_size: Option<(f32, Buffer)> = None;
+
+    const EPSILON: f32 = 1.01; // A small value to avoid infinite loop
+
+    while high - low > EPSILON {
+        // Calculate the midpoint of the current range, rounding to the nearest
+        // integer to avoid floating point precision issues
+        let mid = ((low + high) / 2.0).round();
+        let line_height: f32 = line_height_fn(mid);
+        // Make sure we use a height that is large enough to account for
+        // line wrapping
+        let height = line_height * 2.5;
+
+        let mut buffer =
+            Buffer::new(font_system, Metrics::new(mid, line_height));
+        let mut borrowed_buffer = buffer.borrow_with(font_system);
+
+        borrowed_buffer.set_size(Some(width), Some(height));
+        borrowed_buffer.set_wrap(cosmic_text::Wrap::Glyph);
+        borrowed_buffer.set_text(text, &attrs, cosmic_text::Shaping::Advanced);
+        borrowed_buffer.shape_until_scroll(true);
+        let line_count = borrowed_buffer.layout_runs().count();
+        let size = measure_text(text, &attrs, &mut borrowed_buffer)?;
+
+        if line_count == 1
+            && size.w > 0.0
+            && size.w <= width
+            && size.h <= height
+        {
+            // It fits, so we will continue by searching for a larger size
+            best_size = Some((mid, buffer));
+            low = mid;
+            tracing::debug!("Text fits at size {mid}, adjusting search range to [{high}, {low}]");
+        } else {
+            // Otherwise, the text does not fit, so we will search for a smaller
+            // size
+            high = mid;
+            tracing::debug!("Text does not fit at size {mid}, adjusting search range to [{high}, {low}]");
+        }
+    }
+    // If we have a best size, we can use it to create the buffer
+    if let Some((final_font_size, mut buffer)) = best_size {
+        // We found a size that fits, so we can return it
+        let line_height: f32 = line_height_fn(final_font_size);
+        let height = line_height;
+        let mut borrowed_buffer = buffer.borrow_with(font_system);
+        borrowed_buffer.set_size(Some(width), Some(height));
+        borrowed_buffer.set_metrics(Metrics::new(final_font_size, line_height));
+        borrowed_buffer.set_wrap(cosmic_text::Wrap::Glyph);
+        borrowed_buffer.set_text(text, &attrs, cosmic_text::Shaping::Advanced);
+        borrowed_buffer.shape_until_scroll(true);
+        let size = measure_text(text, &attrs, &mut borrowed_buffer)?;
+        tracing::debug!(
+            text,
+            final_font_size,
+            "Found appropriate size: {size:?}; font size: {final_font_size}"
+        );
+        borrowed_buffer.set_size(Some(size.w), Some(size.h));
+        Ok(buffer)
+    } else {
+        // Otherwise, we did not find a size that fits. So we will use the
+        // minimum font size and use the text with ellipsis
+        let final_font_size = context.minimum_point_size;
+        let line_height: f32 = line_height_fn(final_font_size);
+        let height = line_height;
+        let mut buffer = Buffer::new(
+            font_system,
+            Metrics::new(final_font_size, line_height),
+        );
+        let mut borrowed_buffer = buffer.borrow_with(font_system);
+        borrowed_buffer.set_size(Some(width), Some(height));
+        borrowed_buffer.set_metrics(Metrics::new(final_font_size, line_height));
+        borrowed_buffer.set_wrap(cosmic_text::Wrap::Glyph);
+        // get the text replacing the last 3 characters with ellipsis
+        let text = if text.len() > 3 {
+            format!("{}...", text.split_at(text.len() - 3).0)
+        } else {
+            text.to_string()
+        };
+        borrowed_buffer.set_text(&text, &attrs, cosmic_text::Shaping::Advanced);
+        borrowed_buffer.shape_until_scroll(true);
+        let size = measure_text(&text, &attrs, &mut borrowed_buffer)?;
+        // We still run the chance of an invalid size returned, so take that
+        // into account
+        if size.w > 0.0 && size.w <= width && size.h <= height {
+            borrowed_buffer.set_size(Some(size.w), Some(size.h));
+            Ok(buffer)
+        } else {
+            Err(FontThumbnailError::FailedToFindAppropriateSize)
+        }
+    }
+}
+
+/// Creates a buffer with the given fixed size, returning an error if the text
+fn get_buffer_with_fixed_size<T: Fn(f32) -> f32>(
+    text: &str,
+    attrs: Attrs<'_>,
+    font_system: &mut FontSystem,
+    config: &FontSystemConfig<'_>,
+    line_height_fn: T,
+    size: &f32,
+) -> Result<Buffer, FontThumbnailError> {
+    // Generate the line height from the font height
+    let line_height: f32 = line_height_fn(*size);
+
+    // Make sure there is a enough room for line wrapping to account for the
+    // width being too small
+    let height = line_height * 2.5;
+    let width =
+        config.maximum_width as f32 * (1.0 - config.total_width_padding);
+
+    // Create a buffer for measuring the text
+    let mut buffer = Buffer::new(font_system, Metrics::new(*size, line_height));
+    let mut borrowed_buffer = buffer.borrow_with(font_system);
+
+    borrowed_buffer.set_size(Some(width), Some(height));
+    borrowed_buffer.set_wrap(cosmic_text::Wrap::Glyph);
+    borrowed_buffer.set_text(text, &attrs, cosmic_text::Shaping::Advanced);
+    borrowed_buffer.shape_until_scroll(true);
+    let size = measure_text(text, &attrs, &mut borrowed_buffer)?;
+    if size.w > 0.0 && size.w <= width && size.h <= height {
+        borrowed_buffer.set_size(Some(size.w), Some(size.h));
+        return Ok(buffer);
+    }
+    Err(FontThumbnailError::FailedToFindAppropriateSize)
+}
+
+/// Finds the point size that fits the width and creates a buffer with the text
+/// and has it ready for rendering.
+///
+/// # Remarks
+/// The `line_height_fn` is a function that takes the font size and should be
+/// used to calculate the line height.
+fn get_buffer_with_pt_size_fits_width<T: Fn(f32) -> f32>(
+    text: &str,
+    attrs: Attrs,
+    font_system: &mut FontSystem,
+    config: &FontSystemConfig,
+    line_height_fn: T,
+) -> Result<Buffer, FontThumbnailError> {
+    match &config.font_size_search_strategy {
+        FontSizeSearchStrategy::Linear(ctx) => get_buffer_with_linear_search(
+            text,
+            attrs,
+            font_system,
+            config,
+            line_height_fn,
+            ctx,
+        ),
+        FontSizeSearchStrategy::Binary(ctx) => get_buffer_with_binary_search(
+            text,
+            attrs,
+            font_system,
+            config,
+            line_height_fn,
+            ctx,
+        ),
+        FontSizeSearchStrategy::Fixed(size) => get_buffer_with_fixed_size(
+            text,
+            attrs,
+            font_system,
+            config,
+            line_height_fn,
+            size,
+        ),
+    }
 }
 
 /// Size of the bounding box
