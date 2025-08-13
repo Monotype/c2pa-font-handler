@@ -527,6 +527,11 @@ fn test_new_cosmic_text_thumbnail_generator_from_path() {
         thumbnail.data().starts_with(b"<svg"),
         "Expected thumbnail data to start with '<svg'"
     );
+    assert_eq!(
+        thumbnail.into_parts(),
+        (b"<svg></svg>".to_vec(), "image/svg+xml".to_string()),
+        "Expected owned data to match"
+    );
 }
 
 #[test]

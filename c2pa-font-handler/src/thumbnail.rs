@@ -64,6 +64,11 @@ impl Thumbnail {
     pub fn mime_type(&self) -> &str {
         &self.mime_type
     }
+
+    /// Get the mime type of the thumbnail as an owned string.
+    pub fn into_parts(self) -> (Vec<u8>, String) {
+        (self.data, self.mime_type)
+    }
 }
 
 /// Trait for rendering thumbnails.
