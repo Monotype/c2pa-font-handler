@@ -15,8 +15,8 @@
 //! Example of generating a thumbnail for a font.
 
 use c2pa_font_handler::thumbnail::{
-    CosmicTextThumbnailGenerator, PngThumbnailRenderer, SvgThumbnailRenderer,
-    ThumbnailGenerator,
+    CosmicTextThumbnailGenerator, PngThumbnailRenderer, Renderer,
+    SvgThumbnailRenderer, ThumbnailGenerator,
 };
 use clap::{Parser, ValueEnum};
 use tracing_subscriber::{
@@ -155,21 +155,24 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let font_path = std::path::Path::new(&args.input);
 
-    let generator: Box<dyn ThumbnailGenerator> = match args.thumbnail_type {
-        ThumbnailType::Svg => {
-            let renderer = Box::new(SvgThumbnailRenderer::default());
-            Box::new(CosmicTextThumbnailGenerator::new_with_config(
-                renderer,
-                c2pa_font_handler::thumbnail::FontSystemConfig::builder()
-                    .search_strategy(args.search_strategy.into())
-                    .build(),
-            ))
-        }
-        ThumbnailType::Png => {
-            let renderer = Box::new(PngThumbnailRenderer::default());
-            Box::new(CosmicTextThumbnailGenerator::new(renderer))
-        }
+    // Build up the renderer based on the thumbnail type
+    let renderer: Box<dyn Renderer> = match args.thumbnail_type {
+        ThumbnailType::Svg => Box::new(SvgThumbnailRenderer::default()),
+        ThumbnailType::Png => Box::new(PngThumbnailRenderer::default()),
     };
+    // And the font system configuration
+    let font_system_config =
+        c2pa_font_handler::thumbnail::FontSystemConfig::builder()
+            .search_strategy(args.search_strategy.into())
+            .build();
+    // And finally, create the thumbnail generator with our renderer and
+    // font system configuration.
+    let generator: Box<dyn ThumbnailGenerator> =
+        Box::new(CosmicTextThumbnailGenerator::new_with_config(
+            renderer,
+            font_system_config,
+        ));
+
     let thumbnail = generator
         .create_thumbnail(font_path)
         .map_err(|e| anyhow::anyhow!("Failed to create thumbnail: {}", e))?;
