@@ -19,7 +19,7 @@ use std::{
     io::{Read, Seek},
 };
 
-pub(crate) mod error;
+pub mod error;
 #[cfg(feature = "png-thumbnails")]
 pub(crate) mod png_thumbnail;
 #[cfg(feature = "png-thumbnails")]
@@ -127,9 +127,9 @@ pub trait ThumbnailGenerator {
     ///
     /// # Errors
     /// Returns an error if the thumbnail could not be created from the stream.
-    fn create_thumbnail_from_stream(
+    fn create_thumbnail_from_stream<R: Read + Seek + ?Sized>(
         &self,
-        reader: &mut dyn ReadSeek,
+        reader: &mut R,
         mime_type: Option<&FontMimeTypes>,
     ) -> Result<Thumbnail, error::FontThumbnailError>;
 }

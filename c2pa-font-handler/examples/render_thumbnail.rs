@@ -167,11 +167,10 @@ async fn main() -> Result<(), anyhow::Error> {
             .build();
     // And finally, create the thumbnail generator with our renderer and
     // font system configuration.
-    let generator: Box<dyn ThumbnailGenerator> =
-        Box::new(CosmicTextThumbnailGenerator::new_with_config(
-            renderer,
-            font_system_config,
-        ));
+    let generator = CosmicTextThumbnailGenerator::new_with_config(
+        renderer,
+        font_system_config,
+    );
 
     let thumbnail = generator
         .create_thumbnail(font_path)

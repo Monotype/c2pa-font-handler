@@ -33,9 +33,7 @@ use cosmic_text::{
     FontFeatures, FontSystem, Metrics, SwashCache,
 };
 
-use super::{
-    error::FontThumbnailError, ReadSeek, Renderer, ThumbnailGenerator,
-};
+use super::{error::FontThumbnailError, Renderer, ThumbnailGenerator};
 use crate::mime_type::{FontMimeTypeGuesser, FontMimeTypes};
 #[cfg(feature = "woff")]
 use crate::{sfnt::font::SfntFont, FontDataRead, MutFontDataWrite};
@@ -105,9 +103,9 @@ impl<'a> CosmicTextThumbnailGenerator<'a> {
 }
 
 impl<'a> ThumbnailGenerator for CosmicTextThumbnailGenerator<'a> {
-    fn create_thumbnail_from_stream(
+    fn create_thumbnail_from_stream<R: Read + Seek + ?Sized>(
         &self,
-        reader: &mut dyn ReadSeek,
+        reader: &mut R,
         mime_type: Option<&FontMimeTypes>,
     ) -> Result<super::Thumbnail, super::error::FontThumbnailError> {
         // Determine the MIME type, guessing if not provided
