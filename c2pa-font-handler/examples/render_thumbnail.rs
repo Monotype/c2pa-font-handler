@@ -49,8 +49,7 @@ enum SearchStrategy {
     /// # Remarks
     /// A default binary configuration will be used.
     Binary,
-    /// A fixed font size; this will use the default fixed font size
-    /// defined by `DEFAULT_FIXED_FONT_SIZE`.
+    /// A fixed font size; this will use the default (32.0) fixed font size
     Fixed,
 }
 
