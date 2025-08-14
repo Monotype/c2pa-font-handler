@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org), except that â
 
 Do not manually edit this file. It will be automatically updated when a new release is published.
 
+## 0.6.0
+
+14 August 2025
+
+* C2PA-744: (MINOR) Improve thumbnail font size detection update ([#67](https://github.com/Monotype/c2pa-font-handler/pull/67))
+* C2PA-709: Ability to capture render_thumbnail logs to a file. ([#65](https://github.com/Monotype/c2pa-font-handler/pull/65))
+
 ## 0.5.0
 
 16 July 2025
