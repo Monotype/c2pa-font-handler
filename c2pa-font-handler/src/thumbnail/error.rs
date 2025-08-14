@@ -52,7 +52,12 @@ pub enum FontThumbnailError {
     FailedToCreatePixmap,
     /// Failed to get a pixel from the image
     #[error("Failed to get pixel from image; x: {x}, y: {y}")]
-    FailedToGetPixel { x: u32, y: u32 },
+    FailedToGetPixel {
+        /// The x coordinate of the pixel
+        x: u32,
+        /// The y coordinate of the pixel
+        y: u32,
+    },
     /// Failed to create a SVG tree from string
     #[cfg(feature = "svg-thumbnails")]
     #[error("Failed to create a SVG tree from string: {0}")]

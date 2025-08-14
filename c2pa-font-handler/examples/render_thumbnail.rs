@@ -15,7 +15,8 @@
 //! Example of generating a thumbnail for a font.
 
 use c2pa_font_handler::thumbnail::{
-    CosmicTextThumbnailGenerator, PngThumbnailRenderer, SvgThumbnailRenderer,
+    BinarySearchContext, CosmicTextThumbnailGenerator, FontSizeSearchStrategy,
+    LinearSearchContext, PngThumbnailRenderer, Renderer, SvgThumbnailRenderer,
     ThumbnailGenerator,
 };
 use clap::{Parser, ValueEnum};
@@ -24,6 +25,9 @@ use tracing_subscriber::{
     EnvFilter,
 };
 
+/// Default font size used when the fixed search strategy is selected.
+const DEFAULT_FIXED_FONT_SIZE: f32 = 32.0;
+
 /// Types of thumbnails that can be generated.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
 enum ThumbnailType {
@@ -31,6 +35,42 @@ enum ThumbnailType {
     Svg,
     /// A thumbnail in PNG format
     Png,
+}
+
+/// Strategies for searching for the appropriate font size.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+enum SearchStrategy {
+    /// A linear search strategy for font sizes
+    ///
+    /// # Remarks
+    /// A default linear configuration will be used.
+    Linear,
+    /// A binary search strategy for font sizes
+    ///
+    /// # Remarks
+    /// A default binary configuration will be used.
+    Binary,
+    /// A fixed font size; the font size is defined by the
+    /// [`DEFAULT_FIXED_FONT_SIZE`] constant.
+    Fixed,
+}
+
+// Allow for conversion from `SearchStrategy` to the internal
+// `FontSizeSearchStrategy` used by the thumbnail generator.
+impl From<SearchStrategy> for FontSizeSearchStrategy {
+    fn from(strategy: SearchStrategy) -> Self {
+        match strategy {
+            SearchStrategy::Linear => {
+                FontSizeSearchStrategy::Linear(LinearSearchContext::default())
+            }
+            SearchStrategy::Binary => {
+                FontSizeSearchStrategy::Binary(BinarySearchContext::default())
+            }
+            SearchStrategy::Fixed => {
+                FontSizeSearchStrategy::Fixed(DEFAULT_FIXED_FONT_SIZE)
+            }
+        }
+    }
 }
 
 /// An example of reading a WOFF file and writing information about it to the
@@ -50,6 +90,9 @@ struct Args {
     /// written to stdout.
     #[clap(long, default_value = None)]
     log_file: Option<String>,
+    /// The search strategy for finding the appropriate font size
+    #[clap(long, default_value = "binary")]
+    search_strategy: SearchStrategy,
 }
 
 /// Destination for logging output.
@@ -104,16 +147,23 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let font_path = std::path::Path::new(&args.input);
 
-    let generator: Box<dyn ThumbnailGenerator> = match args.thumbnail_type {
-        ThumbnailType::Svg => {
-            let renderer = Box::new(SvgThumbnailRenderer::default());
-            Box::new(CosmicTextThumbnailGenerator::new(renderer))
-        }
-        ThumbnailType::Png => {
-            let renderer = Box::new(PngThumbnailRenderer::default());
-            Box::new(CosmicTextThumbnailGenerator::new(renderer))
-        }
+    // Build up the renderer based on the thumbnail type
+    let renderer: Box<dyn Renderer> = match args.thumbnail_type {
+        ThumbnailType::Svg => Box::new(SvgThumbnailRenderer::default()),
+        ThumbnailType::Png => Box::new(PngThumbnailRenderer::default()),
     };
+    // And the font system configuration
+    let font_system_config =
+        c2pa_font_handler::thumbnail::FontSystemConfig::builder()
+            .search_strategy(args.search_strategy.into())
+            .build();
+    // And finally, create the thumbnail generator with our renderer and
+    // font system configuration.
+    let generator = CosmicTextThumbnailGenerator::new_with_config(
+        renderer,
+        font_system_config,
+    );
+
     let thumbnail = generator
         .create_thumbnail(font_path)
         .map_err(|e| anyhow::anyhow!("Failed to create thumbnail: {}", e))?;
