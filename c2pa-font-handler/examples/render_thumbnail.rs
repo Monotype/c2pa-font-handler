@@ -15,8 +15,9 @@
 //! Example of generating a thumbnail for a font.
 
 use c2pa_font_handler::thumbnail::{
-    CosmicTextThumbnailGenerator, PngThumbnailRenderer, Renderer,
-    SvgThumbnailRenderer, ThumbnailGenerator,
+    BinarySearchContext, CosmicTextThumbnailGenerator, FontSizeSearchStrategy,
+    LinearSearchContext, PngThumbnailRenderer, Renderer, SvgThumbnailRenderer,
+    ThumbnailGenerator,
 };
 use clap::{Parser, ValueEnum};
 use tracing_subscriber::{
@@ -49,33 +50,24 @@ enum SearchStrategy {
     /// # Remarks
     /// A default binary configuration will be used.
     Binary,
-    /// A fixed font size; this will use the default (32.0) fixed font size
+    /// A fixed font size; the font size is defined by the
+    /// [`DEFAULT_FIXED_FONT_SIZE`] constant.
     Fixed,
 }
 
 // Allow for conversion from `SearchStrategy` to the internal
 // `FontSizeSearchStrategy` used by the thumbnail generator.
-impl From<SearchStrategy>
-    for c2pa_font_handler::thumbnail::FontSizeSearchStrategy
-{
+impl From<SearchStrategy> for FontSizeSearchStrategy {
     fn from(strategy: SearchStrategy) -> Self {
         match strategy {
             SearchStrategy::Linear => {
-                c2pa_font_handler::thumbnail::FontSizeSearchStrategy::Linear(
-                    c2pa_font_handler::thumbnail::LinearSearchContext::default(
-                    ),
-                )
+                FontSizeSearchStrategy::Linear(LinearSearchContext::default())
             }
             SearchStrategy::Binary => {
-                c2pa_font_handler::thumbnail::FontSizeSearchStrategy::Binary(
-                    c2pa_font_handler::thumbnail::BinarySearchContext::default(
-                    ),
-                )
+                FontSizeSearchStrategy::Binary(BinarySearchContext::default())
             }
             SearchStrategy::Fixed => {
-                c2pa_font_handler::thumbnail::FontSizeSearchStrategy::Fixed(
-                    DEFAULT_FIXED_FONT_SIZE,
-                )
+                FontSizeSearchStrategy::Fixed(DEFAULT_FIXED_FONT_SIZE)
             }
         }
     }
