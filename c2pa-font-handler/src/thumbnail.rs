@@ -19,7 +19,7 @@ use std::{
     io::{Read, Seek},
 };
 
-pub(crate) mod error;
+pub mod error;
 #[cfg(feature = "png-thumbnails")]
 pub(crate) mod png_thumbnail;
 #[cfg(feature = "png-thumbnails")]
@@ -32,7 +32,10 @@ pub use svg_thumbnail::{SvgThumbnailRenderer, SvgThumbnailRendererConfig};
 
 pub(crate) mod text;
 use text::TextFontSystemContext;
-pub use text::{CosmicTextThumbnailGenerator, FontSystemConfig};
+pub use text::{
+    BinarySearchContext, CosmicTextThumbnailGenerator, FontSizeSearchStrategy,
+    FontSystemConfig, LinearSearchContext,
+};
 
 use crate::mime_type::{FontMimeTypeGuesser, FontMimeTypes};
 
@@ -60,6 +63,11 @@ impl Thumbnail {
     /// Get the mime type of the thumbnail.
     pub fn mime_type(&self) -> &str {
         &self.mime_type
+    }
+
+    /// Get the mime type of the thumbnail as an owned string.
+    pub fn into_parts(self) -> (Vec<u8>, String) {
+        (self.data, self.mime_type)
     }
 }
 
@@ -124,9 +132,9 @@ pub trait ThumbnailGenerator {
     ///
     /// # Errors
     /// Returns an error if the thumbnail could not be created from the stream.
-    fn create_thumbnail_from_stream(
+    fn create_thumbnail_from_stream<R: Read + Seek + ?Sized>(
         &self,
-        reader: &mut dyn ReadSeek,
+        reader: &mut R,
         mime_type: Option<&FontMimeTypes>,
     ) -> Result<Thumbnail, error::FontThumbnailError>;
 }

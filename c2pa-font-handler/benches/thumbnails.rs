@@ -22,7 +22,8 @@ use std::io::Cursor;
 use c2pa_font_handler::{
     mime_type::FontMimeTypes,
     thumbnail::{
-        CosmicTextThumbnailGenerator, PngThumbnailRenderer,
+        BinarySearchContext, CosmicTextThumbnailGenerator,
+        FontSizeSearchStrategy, LinearSearchContext, PngThumbnailRenderer,
         PngThumbnailRendererConfig, SvgThumbnailRenderer,
         SvgThumbnailRendererConfig, ThumbnailGenerator,
     },
@@ -34,23 +35,54 @@ use profiler_utils::DhatProfiler;
 fn sfnt_thumbnail_benchmarks(c: &mut Criterion) {
     let font_data = include_bytes!("../../.devtools/font.otf");
 
-    // Benchmark for generating an SVG thumbnail
-    c.bench_function("sfnt_svg_thumbnail_default", |b| {
-        b.iter(|| {
+    let mut strategy_group = c.benchmark_group("search_strategies");
+
+    // Common render function for SVG thumbnails, which takes a font data slice
+    // and a search strategy, and generates a thumbnail.
+    let render_function =
+        |font_data: &[u8], strategy: FontSizeSearchStrategy| {
             let mut font_stream = Cursor::new(font_data);
             // SVG renderer
             let svg_renderer = Box::new(SvgThumbnailRenderer::new(
                 SvgThumbnailRendererConfig::default(),
             ));
-            let generator = CosmicTextThumbnailGenerator::new(svg_renderer);
+            let generator = CosmicTextThumbnailGenerator::new_with_config(
+                svg_renderer,
+                c2pa_font_handler::thumbnail::FontSystemConfig::builder()
+                    .search_strategy(strategy)
+                    .build(),
+            );
             let _ = generator
                 .create_thumbnail_from_stream(
                     &mut font_stream,
                     Some(&FontMimeTypes::OTF),
                 )
                 .unwrap();
+        };
+
+    // Benchmark for generating an SVG thumbnail
+    strategy_group.bench_function("sfnt_svg_thumbnail_linear", |b| {
+        b.iter(|| {
+            render_function(
+                font_data,
+                FontSizeSearchStrategy::Linear(LinearSearchContext::default()),
+            );
         });
     });
+    strategy_group.bench_function("sfnt_svg_thumbnail_binary", |b| {
+        b.iter(|| {
+            render_function(
+                font_data,
+                FontSizeSearchStrategy::Binary(BinarySearchContext::default()),
+            );
+        });
+    });
+    strategy_group.bench_function("sfnt_svg_thumbnail_fixed", |b| {
+        b.iter(|| {
+            render_function(font_data, FontSizeSearchStrategy::Fixed(512.0));
+        });
+    });
+    strategy_group.finish();
 
     // Benchmark for generating a PNG thumbnail
     c.bench_function("sfnt_png_thumbnail_default", |b| {
