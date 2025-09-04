@@ -6,6 +6,12 @@ This project adheres to [Semantic Versioning](https://semver.org), except that â
 
 Do not manually edit this file. It will be automatically updated when a new release is published.
 
+## 0.6.1
+
+04 September 2025
+
+* Workflow failure - dev - 173c918a8b0bd3f5e8655d81ac64fac55b14f0dd ([#71](https://github.com/Monotype/c2pa-font-handler/pull/71))
+
 ## 0.6.0
 
 14 August 2025
