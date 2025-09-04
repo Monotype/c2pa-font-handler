@@ -45,7 +45,7 @@ thiserror = { version = "2.0.6" }
 tiny-skia = { version = "0.11.4", default-features = false }
 tokio = { version = "1.42.0", features = ["full"] }
 tracing = { version = "0.1.41" }
-tracing-subscriber = { version = "0.3.19", features = ["json", "env-filter"] }
+tracing-subscriber = { version = "0.3.20", features = ["json", "env-filter"] }
 tracing-test = { version = "0.2.5" }
 unicode-script = { version = "0.5.7" }
 
